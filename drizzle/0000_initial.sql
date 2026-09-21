@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS workspaces (id TEXT PRIMARY KEY, name TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS platforms (id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, name TEXT NOT NULL, key TEXT NOT NULL, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS accounts (id TEXT PRIMARY KEY, platform_id TEXT NOT NULL, name TEXT NOT NULL, handle TEXT, browser_profile_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS browser_profiles (id TEXT PRIMARY KEY, name TEXT NOT NULL, partition TEXT NOT NULL UNIQUE, platform TEXT, account_id TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS contents (id TEXT PRIMARY KEY, platform TEXT NOT NULL, account_id TEXT, title TEXT NOT NULL, body TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'draft', scheduled_at INTEGER, published_url TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY, content_id TEXT, kind TEXT NOT NULL, path TEXT NOT NULL, mime_type TEXT, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS workflows (id TEXT PRIMARY KEY, name TEXT NOT NULL, type TEXT NOT NULL, definition_json TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS jobs (id TEXT PRIMARY KEY, name TEXT NOT NULL, cron TEXT NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, workflow_type TEXT NOT NULL, payload_json TEXT NOT NULL DEFAULT '{}', last_run_at INTEGER, created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS job_runs (id TEXT PRIMARY KEY, job_id TEXT NOT NULL, status TEXT NOT NULL, started_at INTEGER NOT NULL, finished_at INTEGER, error TEXT, output_json TEXT);
+CREATE TABLE IF NOT EXISTS agent_runs (id TEXT PRIMARY KEY, provider TEXT NOT NULL, status TEXT NOT NULL, input_json TEXT NOT NULL, output_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER, error TEXT);

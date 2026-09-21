@@ -1,0 +1,2 @@
+# Fast gate: lint + typecheck + build. Blocks commit on failure.
+npm run gate:fast

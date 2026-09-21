@@ -1,0 +1,3 @@
+import React from 'react';
+export type Page='dashboard'|'browser'|'accounts'|'content'|'automation'|'logs'|'settings';
+export function Sidebar({page,setPage}:{page:Page;setPage:(p:Page)=>void}) { const items:[Page,string,string][]=[['dashboard','◫','Dashboard'],['browser','◎','Browser'],['accounts','◉','Accounts'],['content','✎','Content'],['automation','⌁','Automation'],['logs','⌗','Logs'],['settings','⚙','Settings']]; return <aside className="sidebar"><div className="brand">C<span>OS</span></div>{items.map(([k,i,l])=><button key={k} className={page===k?'active':''} onClick={()=>setPage(k)}><b>{i}</b>{l}</button>)}</aside>; }

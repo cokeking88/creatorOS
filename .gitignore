@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dist-electron/
+dist-tools/
+release/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.env
+.DS_Store
+*.log
+playwright-report/
+test-results/
+CreatorOS_v0.1_source.zip
+CreatorOS_技术设计文档_v0.1.docx

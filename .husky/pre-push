@@ -1,0 +1,2 @@
+# Full gate: fast gate + Playwright E2E. Blocks push on failure.
+npm run gate
