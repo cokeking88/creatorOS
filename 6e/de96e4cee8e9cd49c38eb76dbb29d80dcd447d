@@ -1,0 +1,56 @@
+package.json
+  s_a5d1a373f7f2b8::t_7d82a914bb86d5 15
+  s_a5d1a373f7f2b8::t_c37b0fbfa1fa68 61
+  s_a5d1a373f7f2b8::t_afefa1d2c117af 17,19
+tests/logger.test.ts
+  s_a5d1a373f7f2b8::t_8de94cf9265d1b 1-71
+tests/agent-parse.test.ts
+  s_a5d1a373f7f2b8::t_2de81c873f194b 1-29
+src/main/agent/AgentRuntime.ts
+  s_a5d1a373f7f2b8::t_7bb76cc03ead93 23-31,37
+src/main/db/index.ts
+  s_a5d1a373f7f2b8::t_54b9b7dc84a5e5 66-68
+src/main/services/settings.ts
+  s_a5d1a373f7f2b8::t_1e4256e2cf625a 1,10-14,16-26,29-37,40-46
+  s_a5d1a373f7f2b8::t_4d1eb20eee67be 47
+eslint.config.js
+  s_a5d1a373f7f2b8::t_37913f77afa1ac 7
+tests/providers.test.ts
+  s_a5d1a373f7f2b8::t_e9803c0d90d9e4 1-57
+docs/USAGE_CN.md
+  s_a5d1a373f7f2b8::t_90ede645cb43a2 542,544-546
+docs/WORKFLOW_CN.md
+  s_a5d1a373f7f2b8::t_02d4993ffe14a8 1-179
+tsconfig.test.json
+  s_a5d1a373f7f2b8::t_9863a25dce7920 1-13
+tests/settings.test.ts
+  s_a5d1a373f7f2b8::t_199acbaaf759b0 1-69
+docs/VERIFICATION.md
+  s_a5d1a373f7f2b8::t_eaf8b1814bff9c 3-9
+docs/DEVELOPMENT_PLAN_CN.md
+  s_a5d1a373f7f2b8::t_49ef247323af4e 5
+src/main/services/logger.ts
+  s_a5d1a373f7f2b8::t_3e1d84f761fe30 30-33,36,49-61
+  s_a5d1a373f7f2b8::t_7678791e37cbb7 82-84
+  s_a5d1a373f7f2b8::t_e16dfddaa23d42 62
+vitest.config.ts
+  s_a5d1a373f7f2b8::t_ac1ae84437a24b 1-12
+package-lock.json
+  s_a5d1a373f7f2b8::t_ba9f86e95c2fe9 40,2993-3003,3014-3020,3432-3546,3888-3897,4280-4289,4364-4380,4411-4420,4689-4698,5339-5345,5661-5670,5701-5710,7086-7092,7113-7122,7707-7723,8558-8564,8653-8659,8670-8676,8728-8747,8900-8913,8931-8960,9783-9805,10290-10362,10412-10428
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "6ede96e4cee8e9cd49c38eb76dbb29d80dcd447d",
+  "prompts": {},
+  "sessions": {
+    "s_a5d1a373f7f2b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ba06520-6c0a-4f73-8c1a-1f1639e94bd3",
+        "model": "glm-5.3"
+      },
+      "human_author": "yangnq <yangnq@xiaopeng.com>"
+    }
+  }
+}
