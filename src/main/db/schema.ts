@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { integer, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 const timestamps = {
   createdAt: integer('created_at').notNull(),
@@ -42,7 +42,8 @@ export const jobRuns = sqliteTable('job_runs', {
 });
 
 export const agentRuns = sqliteTable('agent_runs', {
-  id: text('id').primaryKey(), provider: text('provider').notNull(), status: text('status').notNull(), inputJson: text('input_json').notNull(), outputJson: text('output_json'), startedAt: integer('started_at').notNull(), finishedAt: integer('finished_at'), error: text('error')
+  id: text('id').primaryKey(), provider: text('provider').notNull(), status: text('status').notNull(), inputJson: text('input_json').notNull(), outputJson: text('output_json'), startedAt: integer('started_at').notNull(), finishedAt: integer('finished_at'), error: text('error'),
+  sessionId: text('session_id'), stepsJson: text('steps_json'), costUsd: real('cost_usd'), durationMs: integer('duration_ms')
 });
 
 export const settings = sqliteTable('settings', {

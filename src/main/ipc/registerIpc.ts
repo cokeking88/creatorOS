@@ -1,14 +1,15 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc.js';
-import type { LogFilter, ProviderConfig } from '../../shared/types.js';
+import type { AgentEngineConfig, LogFilter } from '../../shared/types.js';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 import type { Scheduler } from '../scheduler/Scheduler.js';
-import type { AgentRuntime } from '../agent/AgentRuntime.js';
 import { repo } from '../db/repository.js';
 import { logger } from '../services/logger.js';
-import { getProviderConfig, setProviderConfig, testProviderConnection } from '../services/settings.js';
+import { getAgentEngineConfig, setAgentEngineConfig } from '../services/settings.js';
+import { getClaudeAgent, type ClaudeAgentService } from '../agent/claudeAgent.js';
+import { nanoid } from 'nanoid';
 
-export function registerIpc(win: BrowserWindow, browser: BrowserKernel, scheduler: Scheduler, agent: AgentRuntime) {
+export function registerIpc(win: BrowserWindow, browser: BrowserKernel, scheduler: Scheduler, agent: ClaudeAgentService) {
   const state=()=>({platforms:repo.listPlatforms(),accounts:repo.listAccounts(),profiles:repo.listProfiles(),tabs:browser.tabs.list(),contents:repo.listContents(),jobs:repo.listJobs(),activeProfileId:browser.activeProfile,activeTabId:browser.activeTab});
   const changed=()=>win.webContents.send(IPC.EVENT_STATE_CHANGED);
   ipcMain.handle(IPC.APP_STATE,()=>state());
@@ -28,10 +29,20 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
   ipcMain.handle(IPC.JOB_LIST,()=>repo.listJobs());
   ipcMain.handle(IPC.JOB_CREATE,(_e,input)=>{const x=repo.createJob(input);scheduler.reload();changed();return x;});
   ipcMain.handle(IPC.JOB_TOGGLE,(_e,id,enabled)=>{repo.toggleJob(id,enabled);scheduler.reload();changed();});
-  ipcMain.handle(IPC.AGENT_CHAT,(_e,messages)=>agent.chat(messages));
   ipcMain.handle(IPC.LOGS_LIST,(_e,filter:LogFilter)=>({entries:logger.query(filter ?? {}),modules:logger.modules()}));
   ipcMain.handle(IPC.LOGS_CLEAR,()=>{logger.clear();});
-  ipcMain.handle(IPC.SETTINGS_GET,()=>getProviderConfig());
-  ipcMain.handle(IPC.SETTINGS_SET,(_e,cfg:ProviderConfig)=>{setProviderConfig(cfg);changed();return getProviderConfig();});
-  ipcMain.handle(IPC.SETTINGS_TEST_PROVIDER,()=>testProviderConnection());
+  ipcMain.handle(IPC.SETTINGS_GET,()=>getAgentEngineConfig());
+  ipcMain.handle(IPC.SETTINGS_SET,(_e,cfg:AgentEngineConfig)=>{setAgentEngineConfig(cfg);changed();return getAgentEngineConfig();});
+  ipcMain.handle(IPC.SETTINGS_TEST_PROVIDER,()=>getClaudeAgent().testConnection());
+  // agent:run returns {runId} immediately; every later state of the run (steps,
+  // done) flows over the StepBus -> EVENT_AGENT_STEP/EVENT_AGENT_DONE events.
+  ipcMain.handle(IPC.AGENT_RUN,(_e,prompt: string,resumeSessionId?: string)=>{
+    const runId=nanoid();
+    // Fire-and-forget: streamRun resolves (never rejects — run failures resolve
+    // ok:false) and finalize() is the single place that publishes the done event.
+    void agent.streamRun(prompt,{runId,source:'chat',resumeSessionId:resumeSessionId??null})
+      .catch(e=>logger.child('agent').error('Agent stream failed unexpectedly',{runId,error:String(e)}));
+    return {runId};
+  });
+  ipcMain.handle(IPC.AGENT_STOP,(_e,runId: string)=>agent.stop(runId));
 }

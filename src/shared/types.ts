@@ -63,7 +63,57 @@ export type BrowserSnapshot = {
   }>;
 };
 
-export type AgentMessage = { role: 'user' | 'assistant' | 'system'; content: string };
+/** One streamed execution step of a Claude Code agent run (chat and cron share this). */
+export type AgentStep = {
+  runId: string;
+  seq: number;
+  time: number;
+  type: 'text' | 'tool_start' | 'tool_result' | 'done' | 'error';
+  /** assistant text (or delta when isDelta) */
+  text?: string;
+  isDelta?: boolean;
+  /** tool name for tool_start / tool_result */
+  tool?: string;
+  /** serialized tool input (tool_start) */
+  inputText?: string;
+  /** tool result summary or done/error metadata (JSON string) */
+  detail?: string;
+  ok?: boolean;
+  /** 'chat' | 'cron:<jobName>' — enriched by the service, not the translator */
+  source?: string;
+  /** source assistant message uuid (delta grouping key) */
+  msgUuid?: string;
+  /** tool_result paired duration (tool_start -> tool_result, translator-computed) */
+  durationMs?: number;
+};
+
+/** Claude Code SDK engine configuration (Settings page). */
+export type AgentEngineConfig = {
+  /** Anthropic-protocol gateway, e.g. company relay. Default: https://api.anthropic.com */
+  baseUrl?: string;
+  /** sent as ANTHROPIC_AUTH_TOKEN (Authorization: Bearer) */
+  authToken?: string;
+  /** sent as ANTHROPIC_API_KEY (x-api-key); authToken wins when both set */
+  apiKey?: string;
+  /** ANTHROPIC_MODEL */
+  model?: string;
+};
+
+export type AgentRunResult = {
+  runId: string;
+  sessionId: string | null;
+  ok: boolean;
+  text: string;
+  stepCount: number;
+  costUsd?: number | null;
+  durationMs?: number | null;
+  /** failure/interrupt reason (same source as agent_runs.error) */
+  error?: string | null;
+  /** true when the user pressed stop (UI shows「已中断」rather than a generic error) */
+  interrupted?: boolean;
+  /** 'chat' | 'cron:<jobName>' */
+  source?: string;
+};
 
 export type AppState = {
   platforms: PlatformRecord[];
@@ -93,19 +143,4 @@ export type LogFilter = {
   search?: string;
   since?: number;
   limit?: number;
-};
-
-export type ProviderConfig = {
-  provider: 'mock' | 'anthropic' | 'openai-compatible';
-  anthropicKey?: string;
-  anthropicModel?: string;
-  compatBaseUrl?: string;
-  compatKey?: string;
-  compatModel?: string;
-};
-
-export type ProviderTestResult = {
-  ok: boolean;
-  provider: string;
-  detail?: string;
 };

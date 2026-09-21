@@ -26,6 +26,7 @@ Element refs are snapshot-scoped. Take a new snapshot after navigation or major 
 
 ## Jobs
 
+- `POST /api/jobs` `{ name, cron, workflowType, payload }` — creates a cron job (201). `workflowType` ∈ `browser.navigate | demo | agent.run`; `agent.run` requires `payload.prompt`. Invalid input returns 400.
 - `POST /api/jobs/:id/run`
 
 ## Webhooks

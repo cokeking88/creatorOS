@@ -3,7 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { SettingsStore } from '../src/main/services/settings.js';
+import { SettingsStore, engineConfigFromEnv } from '../src/main/services/settings.js';
 
 const dirs: string[] = [];
 function freshDb() {
@@ -18,11 +18,19 @@ afterEach(() => {
   for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
 });
 
-describe('SettingsStore', () => {
-  it('roundtrips a provider config through SQLite', () => {
+/** Hermetic env: clear all engine vars so ambient shell values cannot leak into assertions. */
+function clearEngineEnv() {
+  delete process.env.ANTHROPIC_BASE_URL;
+  delete process.env.ANTHROPIC_AUTH_TOKEN;
+  delete process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_MODEL;
+}
+
+describe('SettingsStore (agent engine config)', () => {
+  it('roundtrips an AgentEngineConfig through SQLite', () => {
     const db = freshDb();
     const store = new SettingsStore(db);
-    const cfg = { provider: 'anthropic' as const, anthropicKey: 'sk-1', anthropicModel: 'm1' };
+    const cfg = { baseUrl: 'https://relay.internal/v1', authToken: 'tok-1', model: 'claude-sonnet-4-5' };
     store.set(cfg);
     expect(store.get()).toEqual(cfg);
     db.close();
@@ -31,8 +39,8 @@ describe('SettingsStore', () => {
   it('upserts: a second set overwrites, not duplicates', () => {
     const db = freshDb();
     const store = new SettingsStore(db);
-    store.set({ provider: 'mock' });
-    const second = { provider: 'openai-compatible' as const, compatBaseUrl: 'https://gw/v1', compatKey: 'k', compatModel: 'm' };
+    store.set({ model: 'a' });
+    const second = { apiKey: 'sk-2', model: 'b' };
     store.set(second);
     const rows = db.prepare('SELECT COUNT(*) AS c FROM settings').get() as { c: number };
     expect(rows.c).toBe(1);
@@ -40,30 +48,51 @@ describe('SettingsStore', () => {
     db.close();
   });
 
-  it('falls back to env config when the DB row is absent', () => {
+  it('migrates legacy v0.2 provider rows back to the env-derived engine config', () => {
     const db = freshDb();
     const prev = { ...process.env };
     try {
-      process.env.CREATOROS_AGENT_PROVIDER = 'mock';
+      clearEngineEnv();
+      process.env.ANTHROPIC_BASE_URL = 'https://relay.env/v1';
+      process.env.ANTHROPIC_AUTH_TOKEN = 'env-tok';
+      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('agent-engine', '{\"provider\":\"anthropic\"}', 0)").run();
       const store = new SettingsStore(db);
-      expect(store.get().provider).toBe('mock');
+      expect(store.get()).toEqual({ baseUrl: 'https://relay.env/v1', authToken: 'env-tok' });
     } finally {
       process.env = prev;
       db.close();
     }
   });
 
-  it('falls back to env config when the row is corrupt JSON', () => {
+  it('falls back to env config when the row is absent or corrupt', () => {
     const db = freshDb();
     const prev = { ...process.env };
     try {
-      process.env.CREATOROS_AGENT_PROVIDER = 'mock';
-      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('provider', '{not json', 0)").run();
+      clearEngineEnv();
+      process.env.ANTHROPIC_MODEL = 'm-env';
       const store = new SettingsStore(db);
-      expect(store.get().provider).toBe('mock');
+      expect(store.get()).toEqual({ model: 'm-env' });
+      db.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('agent-engine', '{not json', 0)").run();
+      expect(store.get()).toEqual({ model: 'm-env' });
     } finally {
       process.env = prev;
       db.close();
+    }
+  });
+});
+
+describe('engineConfigFromEnv', () => {
+  it('maps all four env vars', () => {
+    const prev = { ...process.env };
+    try {
+      clearEngineEnv();
+      process.env.ANTHROPIC_BASE_URL = 'https://gw/v1';
+      process.env.ANTHROPIC_AUTH_TOKEN = 't';
+      process.env.ANTHROPIC_API_KEY = 'k';
+      process.env.ANTHROPIC_MODEL = 'm';
+      expect(engineConfigFromEnv()).toEqual({ baseUrl: 'https://gw/v1', authToken: 't', apiKey: 'k', model: 'm' });
+    } finally {
+      process.env = prev;
     }
   });
 });

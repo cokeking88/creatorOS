@@ -1,13 +1,13 @@
 # CreatorOS 研发计划（里程碑级概要）
 
-> 基线：v0.1 底座（已完成并通过真实构建验证）+ v0.2 门禁/日志/Settings（本轮）。
+> 基线：v0.1 底座（已完成并通过真实构建验证）+ v0.2 门禁/日志/Settings + v0.3 Agent 内核替换（Claude Code SDK）。
 > 估算口径：1 人独立开发，含联调与自测；「人天」按有效开发日计。
 > 流程规范见 `WORKFLOW_CN.md`（需求→UI→架构→开发→测试→门禁→发布，全阶段停止线与 DoD）。
 
 ## Definition of Done（全里程碑通用）
 
-- `npm run gate` 全绿（ESLint 0 error + 3×typecheck + build + Playwright E2E 18 用例）
-- 文档同步更新（README / USAGE_CN / SECURITY / VERIFICATION）
+- `npm run gate` 全绿（ESLint 0 error + 4×typecheck + build + vitest 单测 + Playwright E2E 27 用例）
+- 文档同步更新（README / USAGE_CN / ARCHITECTURE / SECURITY / API / VERIFICATION 涉及即更新）
 - 新增主进程能力必须有对应 E2E 覆盖
 
 ---
@@ -36,9 +36,13 @@
 
 合计 **6 人天**（实际本轮一次会话完成）。
 
-## M3 — 平台 Adapter 与发布确认门（下一轮，建议 2 周）
+### M2 追加 — Agent 内核替换（已完成，v0.3）
 
-| Epic | 人天 | 依赖 |
+| Epic | 人天 | 说明 |
+|---|---|---|
+| Agent 内核替换为 **Claude Code Agent SDK** + **执行步骤实时流式展示** + cron `agent.run`（聊天与定时同一引擎） | 3 | 自研 JSON 工具循环（AgentRuntime/providers）移除，改为 spawn claude 子进程 + 进程内 SDK MCP server（15 个 browser_* 工具）；SDK 流消息翻译为 AgentStep 经 StepBus→IPC 推 renderer，AgentPanel 全事件驱动（tool_start 转圈/tool_result 耗时/text 打字机/done cost+时长、停止、resume 续聊）；Scheduler 新增 `agent.run` 走同一 streamRun；Settings 改四字段引擎配置（ANTHROPIC_BASE_URL/AUTH_TOKEN/API_KEY/MODEL）热生效，v0.2 旧 provider 行自动迁移；`agent_runs` 增 session_id/steps_json/cost_usd/duration_ms 列；Gateway 增 `POST /api/jobs`（校验+201/400）。已含双层测试：vitest 6 文件 43 用例 + playwright 27 用例（agent/settings/cron-agent 重写新增），`npm run gate` 全绿；spec 产物链见 `docs/specs/agent-claude-code*.md`（R0–R4） |
+
+## M3 — 平台 Adapter 与发布确认门（下一轮，建议 2 周）| Epic | 人天 | 依赖 |
 |---|---|---|
 | Adapter 抽象层：`PlatformAdapter` 接口（create_post/upload_images/set_title/fill_body）+ 注册表 | 2 | M2 |
 | 小红书创作中心 Adapter：登录检测、标题/正文/图片填充、发布前暂停点 | 4 | Adapter 抽象层 |
@@ -76,11 +80,12 @@
 |---|---|---|
 | M1 底座（已完成） | 13 | 13 |
 | M2 工程化（已完成） | 6 | 19 |
-| M3 平台 Adapter | 10 | 29 |
-| M4 数据与评论 | 8 | 37 |
-| M5 集成加固 | 7 | 44 |
+| M2 追加 Agent 内核替换 v0.3（已完成） | 3 | 22 |
+| M3 平台 Adapter | 10 | 32 |
+| M4 数据与评论 | 8 | 40 |
+| M5 集成加固 | 7 | 47 |
 
-至「可长期运营」全量约 **44 人天**；最小可运营闭环（M1–M3）约 **29 人天**。
+至「可长期运营」全量约 **47 人天**；最小可运营闭环（M1–M3）约 **32 人天**。
 
 ## 风险与开放项
 

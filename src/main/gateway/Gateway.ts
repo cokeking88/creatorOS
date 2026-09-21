@@ -1,4 +1,5 @@
 import Fastify from 'fastify';
+import cron from 'node-cron';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 import type { Scheduler } from '../scheduler/Scheduler.js';
 import { repo } from '../db/repository.js';
@@ -8,6 +9,8 @@ export async function startGateway(browser: BrowserKernel, scheduler: Scheduler)
   const log = logger.child('gateway');
   const app = Fastify({ logger:false });
   const token=process.env.CREATOROS_GATEWAY_TOKEN ?? 'change-me';
+  /** Reject with a real HTTP 400 (reply400 alone only shaped the JSON body). */
+  const badRequest = (reply: { code: (s: number) => { send: (b: unknown) => unknown } }, msg: string) => reply.code(400).send({ error: msg });
   app.addHook('onRequest', async (req, reply) => {
     log.debug('request', { method: req.method, url: req.url });
     if (req.url === '/health') return;
@@ -33,6 +36,17 @@ export async function startGateway(browser: BrowserKernel, scheduler: Scheduler)
   app.post('/api/jobs/:id/run', async(req)=>{await scheduler.run((req.params as any).id);return {ok:true};});
   app.get('/api/logs', async(req)=>{const q=(req.query as any);return {entries:logger.query({level:q?.level,module:q?.module,search:q?.search,since:q?.since?Number(q.since):undefined,limit:q?.limit?Number(q.limit):undefined}),modules:logger.modules()};});
   app.post('/api/logs/clear', async()=>{logger.clear();return {ok:true};});
+  app.post('/api/jobs', async(req,reply)=>{
+    const b=req.body as {name?:unknown;cron?:unknown;workflowType?:unknown;payload?:Record<string,unknown>|null};
+    // Input validation (backend backstop for the Automation form): a job with a
+    // bad shape must never reach the scheduler. cron.validate re-checks on reload.
+    if (typeof b?.name!=='string'||!b.name.trim()) return badRequest(reply,'name is required');
+    if (typeof b?.cron!=='string'||!cron.validate(b.cron)) return badRequest(reply,'cron is invalid');
+    const wf=typeof b?.workflowType==='string'?b.workflowType:'';
+    if (!['browser.navigate','demo','agent.run'].includes(wf)) return badRequest(reply,'workflowType must be one of browser.navigate|demo|agent.run');
+    if (wf==='agent.run'&&!(typeof b?.payload?.prompt==='string'&&b.payload.prompt.trim())) return badRequest(reply,'agent.run job requires payload.prompt');
+    const j=scheduler.createJob({name:b.name,cron:b.cron,workflowType:wf,payload:b.payload??{}});reply.code(201);return j;
+  });
   app.post('/webhooks/feishu', async(req)=>{
     const body=req.body as any;
     if (body?.type === 'url_verification') return { challenge: body.challenge };

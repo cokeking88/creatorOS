@@ -1,2 +1,160 @@
-import React,{useState} from 'react'; import type { AgentMessage } from '../../shared/types';
-export function AgentPanel(){const[msg,setMsg]=useState('');const[items,setItems]=useState<AgentMessage[]>([]);const[busy,setBusy]=useState(false);async function send(){if(!msg.trim())return;const next=[...items,{role:'user' as const,content:msg}];setItems(next);setMsg('');setBusy(true);try{const r=await window.creatorOS.agent.chat(next);setItems([...next,{role:'assistant',content:r.text}])}catch(e){setItems([...next,{role:'assistant',content:`Error: ${String(e)}`}])}finally{setBusy(false)}}return <aside className="agent"><header><b>Agent</b><span>{busy?'thinking…':'local runtime'}</span></header><div className="chat">{items.length===0&&<p className="muted">Ask the agent about the current embedded page or your content workflow.</p>}{items.map((m,i)=><div key={i} className={`bubble ${m.role}`}>{m.content}</div>)}</div><div className="composer"><textarea value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}} placeholder="Ask CreatorOS…"/><button onClick={send}>Send</button></div></aside>}
+import React,{useEffect,useRef,useState} from 'react';
+import type { AgentStep, AgentRunResult } from '../../shared/types';
+
+/**
+ * Single source of truth for one agent run (arch spec §2.4).
+ * user bubbles and RunItems are the only item kinds; the assistant text is
+ * rendered BY the RunItem (inline typewriter while running, one final bubble
+ * in a terminal state) — never appended as its own item (G2).
+ */
+type RunItem = {
+  kind:'run';
+  runId:string;
+  source:string;
+  steps:AgentStep[];
+  /** typewriter buffer grouped by assistant message uuid (G3) */
+  streamText:Array<{uuid:string;text:string}>;
+  status:'running'|'done'|'error'|'interrupted';
+  /** authoritative final reply (done payload / result step text) */
+  finalText:string;
+  expandedSeq:number|null;
+  meta?:{cost?:number|null;durationMs?:number|null;sessionId?:string|null};
+};
+type Item = { kind:'user'; text:string } | RunItem;
+
+/** Aggregate a text step into the uuid-keyed typewriter buffer (G3). */
+function applyTextStep(streamText:RunItem['streamText'],step:AgentStep):RunItem['streamText'] {
+  const uuid=step.msgUuid||'default';
+  const idx=streamText.findIndex(e=>e.uuid===uuid);
+  if(step.isDelta){
+    if(idx<0)return [...streamText,{uuid,text:step.text??''}];
+    const next=[...streamText];next[idx]={uuid,text:next[idx].text+(step.text??'')};return next;
+  }
+  // Full text replaces the same message's buffer entirely; other messages are kept.
+  if(idx<0)return [...streamText,{uuid,text:step.text??''}];
+  const next=[...streamText];next[idx]={uuid,text:step.text??''};return next;
+}
+
+function StepLine({step,expanded,onToggle}:{step:AgentStep;expanded:boolean;onToggle:()=>void}) {
+  const time=new Date(step.time).toLocaleTimeString();
+  if(step.type==='tool_start') return <div className={`step ${expanded?'open':''}`} onClick={onToggle}>
+    <span className="step-icon spin">⚙</span>
+    <span className="step-label">{step.tool}</span>
+    {step.inputText && <span className="step-hint">{expanded?'收起':'展开'}</span>}
+    <span className="step-time">{time}</span>
+    {expanded && step.inputText && <pre className="step-json">{step.inputText}</pre>}
+  </div>;
+  if(step.type==='tool_result') return <div className={`step result ${step.ok?'ok':'fail'}`} onClick={onToggle}>
+    <span className="step-icon">{step.ok?'✓':'✗'}</span>
+    <span className="step-label">{step.tool}</span>
+    {step.detail && <span className="step-hint">{expanded?'收起':'详情'}</span>}
+    <span className="step-time">{typeof step.durationMs==='number'?`${Math.round(step.durationMs/100)/10}s`:time}</span>
+    {expanded && step.detail && <pre className="step-json">{step.detail}</pre>}
+  </div>;
+  if(step.type==='done'||step.type==='error') { let meta:Record<string,unknown>={}; try { meta=step.detail?JSON.parse(step.detail):{}; } catch { /* non-json detail */ }
+    const interrupted=meta.subtype==='interrupted';
+    return <div className={`step ${step.type}`} onClick={onToggle}>
+      <span className="step-icon">{step.type==='done'?'●':'⚠'}</span>
+      <span className="step-label">{step.type==='done'?'完成':interrupted?'已中断':'出错'}</span>
+      {step.type==='error' && step.detail && <span className="step-hint">{expanded?'收起':'详情'}</span>}
+      {typeof meta.cost==='number'&&<span className="step-time">${meta.cost.toFixed(4)}</span>}
+      {typeof meta.durationMs==='number'&&<span className="step-time">{Math.round(meta.durationMs/100)/10}s</span>}
+      {expanded && step.type==='error' && step.detail && <pre className="step-json">{step.detail}</pre>}
+    </div>; }
+  return null;
+}
+
+export function AgentPanel(){
+  const [msg,setMsg]=useState('');
+  const [items,setItems]=useState<Item[]>([]);
+  const [sessionId,setSessionId]=useState<string|null>(null);
+  const [activeRunId,setActiveRunId]=useState<string|null>(null);
+  const chatRef=useRef<HTMLDivElement>(null);
+
+  /** Derived: the chat run started from this panel is still running (cron runs never block the composer). */
+  const busy=items.some(it=>it.kind==='run'&&it.runId===activeRunId&&it.status==='running');
+  /** Derived: latest running cron run, by runId — banner clears when its done lands (G1). */
+  const cronRun=([...items].reverse().find(it=>it.kind==='run'&&it.source.startsWith('cron:')&&it.status==='running') as RunItem|undefined);
+
+  const scrollToBottom=()=>{ if(chatRef.current)chatRef.current.scrollTop=chatRef.current.scrollHeight; };
+  useEffect(scrollToBottom,[items]);
+
+  useEffect(()=>{
+    const offStep=window.creatorOS.onAgentStep((s)=>{
+      setItems(prev=>{
+        // Every step lands in the run's RunItem — the only place steps are stored.
+        let idx=-1; for(let i=prev.length-1;i>=0;i--){ const it=prev[i]; if(it.kind==='run'&&it.runId===s.runId){idx=i;break;} }
+        if(idx<0){ // A run we have no item for yet (cron or a race): create one and let events drive it.
+          const run:RunItem={kind:'run',runId:s.runId,source:s.source??'chat',steps:[s],streamText:s.type==='text'?applyTextStep([],s):[],status:'running',finalText:'',expandedSeq:null};
+          return [...prev,run];
+        }
+        const run=prev[idx] as RunItem;
+        const nextRun:RunItem={...run,steps:[...run.steps,s]};
+        if(s.type==='text')nextRun.streamText=applyTextStep(run.streamText,s);
+        const next=[...prev];next[idx]=nextRun;return next;
+      });
+    });
+    const offDone=window.creatorOS.onAgentDone((r)=>{
+      // Only mutates the existing RunItem's terminal fields — never appends (G2).
+      setItems(prev=>{
+        let idx=-1; for(let i=prev.length-1;i>=0;i--){ const it=prev[i]; if(it.kind==='run'&&it.runId===r.runId){idx=i;break;} }
+        if(idx<0)return prev; // stale event after a reload: ignore
+        const run=prev[idx] as RunItem;
+        const status:RunItem['status']=r.interrupted?'interrupted':r.ok?'done':'error';
+        const next=[...prev];
+        next[idx]={...run,status,finalText:r.text??run.finalText,meta:{cost:r.costUsd??null,durationMs:r.durationMs??null,sessionId:r.sessionId??null}};
+        return next;
+      });
+      const res=r as AgentRunResult;
+      if(res.sessionId)setSessionId(res.sessionId);
+    });
+    return ()=>{offStep();offDone();};
+  },[]);
+
+  async function send(){
+    if(!msg.trim()||busy)return;
+    const prompt=msg;
+    setMsg('');
+    try{
+      // Returns immediately with the runId; every later state arrives as events.
+      const {runId}=await window.creatorOS.agent.run(prompt,sessionId??undefined);
+      setActiveRunId(runId);
+      setItems(prev=>[...prev,{kind:'user',text:prompt},{kind:'run',runId,source:'chat',steps:[],streamText:[],status:'running',finalText:'',expandedSeq:null}]);
+    }catch(e){
+      setItems(prev=>[...prev,{kind:'user',text:prompt},{kind:'run',runId:'error',source:'chat',steps:[],streamText:[],status:'error',finalText:`Error: ${String(e)}`,expandedSeq:null}]);
+    }
+  }
+
+  async function stop(){
+    if(activeRunId)await window.creatorOS.agent.stop(activeRunId);
+  }
+
+  return <aside className="agent">
+    <header><b>Agent</b><span>{busy?'运行中…':'Claude Code'}</span></header>
+    {cronRun&&<div className="cron-banner">⏱ Cron job {cronRun.source.slice('cron:'.length)} 运行中…</div>}
+    <div className="chat" ref={chatRef}>
+      {items.length===0&&<p className="muted">内置 Agent 现由 Claude Code 驱动。执行步骤会在这里实时展示。</p>}
+      {items.map((it,i)=>{
+        if(it.kind==='user')return <div key={i} className="bubble user">{it.text}</div>;
+        const running=it.status==='running';
+        const inline=running?it.streamText.map(e=>e.text).join(''):null;
+        return <div key={i} className={`step-group ${running?'':'done'}`}>
+          {it.steps.map(s=>
+            <StepLine key={s.seq} step={s} expanded={it.expandedSeq===s.seq} onToggle={()=>setItems(prev=>{const n=[...prev];const c=n[i] as RunItem;c.expandedSeq=c.expandedSeq===s.seq?null:s.seq;return n;})}/>
+          )}
+          {running&&inline!==null&&<div className="bubble assistant inline">{inline}</div>}
+          {!running&&it.finalText&&<div className={`bubble assistant ${it.status==='error'?'pending':''}`}>{it.finalText}</div>}
+        </div>;
+      })}
+    </div>
+    <div className="composer">
+      <textarea value={msg} onChange={e=>setMsg(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();void send()}}} placeholder={sessionId?'继续对话（保留上下文）…':'给 Agent 下指令…'}/>
+      <div className="composer-actions">
+        <span className="muted small">{sessionId?'会话已续接':'新会话'}</span>
+        {busy
+          ? <button className="stop" onClick={stop}>■ 停止</button>
+          : <button onClick={send}>发送</button>}
+      </div>
+    </div>
+  </aside>;
+}

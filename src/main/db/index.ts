@@ -27,6 +27,16 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS agent_runs (id TEXT PRIMARY KEY, provider TEXT NOT NULL, status TEXT NOT NULL, input_json TEXT NOT NULL, output_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER, error TEXT);
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL);
   `);
+  // v0.3: extend agent_runs for the Claude Code engine (idempotent).
+  for (const col of [
+    ['session_id', 'TEXT'],
+    ['steps_json', 'TEXT'],
+    ['cost_usd', 'REAL'],
+    ['duration_ms', 'INTEGER'],
+  ] as const) {
+    const existing = sqlite.prepare(`SELECT COUNT(*) AS c FROM pragma_table_info('agent_runs') WHERE name = ?`).get(col[0]) as { c: number };
+    if (!existing.c) sqlite.exec(`ALTER TABLE agent_runs ADD COLUMN ${col[0]} ${col[1]}`);
+  }
   db = drizzle({ client: sqlite });
   seedDefaults();
   return db;

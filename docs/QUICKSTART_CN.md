@@ -52,26 +52,18 @@ scripts/start.command
 
 ## 5. 内置 Agent
 
-默认 Provider 是 `mock`，无需 Key 即可启动。
+内置 Agent 内核是 **Claude Code Agent SDK**：每次运行 spawn 一个 `claude` CLI 子进程，通过 Anthropic 协议调用模型。没有 Key 时启动不报错，发起 Agent 运行时才需要配置。
 
-如使用 Anthropic：
-
-```env
-CREATOROS_AGENT_PROVIDER=anthropic
-ANTHROPIC_API_KEY=你的Key
-ANTHROPIC_MODEL=你的Claude模型名
-```
-
-也支持 OpenAI-compatible 网关：
+推荐在应用内 **Settings 页面**配置（保存即热生效，无需重启）；也可在 `.env` 里配置首次启动默认值：
 
 ```env
-CREATOROS_AGENT_PROVIDER=openai-compatible
-OPENAI_COMPAT_BASE_URL=https://你的网关/v1
-OPENAI_COMPAT_API_KEY=...
-OPENAI_COMPAT_MODEL=...
+ANTHROPIC_BASE_URL=https://api.anthropic.com   # 公司网关/中转站填这里
+ANTHROPIC_AUTH_TOKEN=xxx                         # Bearer Token（与下面 Key 二选一，优先）
+ANTHROPIC_API_KEY=sk-xxx                         # x-api-key
+ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-内置 Agent 通过 BrowserKernel 的工具循环操作当前 `WebContentsView`，不会启动外部 Chrome。
+内置 Agent 通过进程内 MCP server（15 个 `browser_*` 工具）操作当前 `WebContentsView`，不会启动外部 Chrome。执行步骤会实时流式展示在右侧 Agent 面板。
 
 ## 6. Claude / 外部 Agent 通过 MCP 使用
 
@@ -91,6 +83,7 @@ Automation 页面可以创建 Cron Job。当前 MVP 内置：
 
 - `demo`
 - `browser.navigate`
+- `agent.run`（v0.3 新增：到点把 prompt 交给与聊天同一引擎的 Claude Code Agent 执行，步骤实时出现在 Agent 面板）
 
 后续可以在 `Scheduler.ts` / workflow 层继续加入发布、采集、统计等流程。
 

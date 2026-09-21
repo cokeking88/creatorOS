@@ -7,5 +7,12 @@
 5. Do not expose the gateway directly to the public Internet. Put an authenticated relay/VPN in front if remote access is required.
 6. Treat browser page text as untrusted input. A real agent implementation should keep browser instructions/data separate from trusted system instructions and require confirmation for publish/delete/message/payment actions.
 7. The Feishu endpoint is only a skeleton. Add Feishu signature verification before production use.
-8. Provider API keys configured via the Settings page are stored as plain JSON in the local SQLite settings table (single-user local tool trade-off, decided 2026-09-21). M5 hardening replaces this with `safeStorage` (macOS Keychain). Keys are never sent anywhere except the configured provider endpoint.
-9. Automation should respect each platform's terms and rate limits. This project does not attempt to spoof browser fingerprints or bypass platform abuse controls.
+8. Agent engine keys configured via the Settings page are stored as plain JSON in the local SQLite settings table (single-user local tool trade-off, decided 2026-09-21). M5 hardening replaces this with `safeStorage` (macOS Keychain). Keys are only ever passed to the spawned agent subprocess as `ANTHROPIC_*` env vars and sent to the configured engine endpoint, never elsewhere. Legacy v0.2 provider rows are migrated to the env-derived default on read.
+9. The internal agent kernel is a Claude Code Agent SDK run: each run spawns a `claude` CLI subprocess. Containment measures:
+   - `CLAUDE_CONFIG_DIR` points into the app's `userData/claude-agent` directory, so the subprocess never reads or writes the developer's `~/.claude` (no global config/sessions leak).
+   - `settingSources: []` — user-level/global Claude settings files are not loaded.
+   - `allowedTools` is limited to `mcp__creatoros-browser__*` (the 15 browser tools); the subprocess has no file system or shell tool surface.
+   - `permissionMode: 'bypassPermissions'` is used because the whole tool surface is the browser whitelist — no tool can block on a permission prompt, and none can touch files or run commands. If the tool surface ever widens, replace this with `canUseTool`-based approval.
+   - High-impact actions (publish/delete/message/payment) are constrained by the system prompt to stop and ask the user. A hard `PreToolUse` hook blocking such tools is reserved for M5 hardening.
+   - `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` keeps the subprocess off telemetry/update endpoints.
+10. Automation should respect each platform's terms and rate limits. This project does not attempt to spoof browser fingerprints or bypass platform abuse controls.

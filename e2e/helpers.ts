@@ -11,19 +11,26 @@ const FIXTURE_URL = 'http://127.0.0.1:17992/';
 export type Launched = { electronApp: ElectronApplication; window: Page; userData: string };
 
 /** Launch the real app against a throwaway userData dir and test-only gateway port. */
-export async function launchApp(userDataArg?: string): Promise<Launched> {
+export async function launchApp(userDataArg?: string, extraEnv?: Record<string, string>): Promise<Launched> {
   const userData = userDataArg ?? mkdtempSync(join(tmpdir(), 'creatoros-e2e-'));
-  const electronApp = await electron.launch({
-    args: ['.'],
-    env: {
-      ...process.env,
-      CREATOROS_USER_DATA: userData,
-      CREATOROS_GATEWAY_PORT: String(GATEWAY_PORT),
-      CREATOROS_GATEWAY_TOKEN: TOKEN,
-      CREATOROS_AGENT_PROVIDER: 'mock',
-      VITE_DEV_SERVER_URL: '',
-    },
+  const env: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) if (typeof v === 'string') env[k] = v;
+  Object.assign(env, {
+    CREATOROS_USER_DATA: userData,
+    CREATOROS_GATEWAY_PORT: String(GATEWAY_PORT),
+    CREATOROS_GATEWAY_TOKEN: TOKEN,
+    CREATOROS_FAKE_CLAUDE: '1',
+    VITE_DEV_SERVER_URL: '',
+    ...extraEnv,
   });
+  // Hermetic: scrub ambient Anthropic gateway vars (a dev shell running Claude
+  // Code exports ANTHROPIC_BASE_URL/AUTH_TOKEN/MODEL) so settings.get() falls
+  // back to a deterministic empty config. Fake mode never spawns the SDK.
+  delete env.ANTHROPIC_BASE_URL;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_MODEL;
+  const electronApp = await electron.launch({ args: ['.'], env });
   const window = await electronApp.firstWindow();
   await window.waitForLoadState('domcontentloaded');
   return { electronApp, window, userData };

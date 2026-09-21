@@ -113,7 +113,7 @@ git commit -m "feat(settings): keychain encryption for provider keys"
 | 集成 | **Playwright** | 真实 app：启动/IPC/内嵌浏览器/持久化/重启恢复——**完整链路** | `e2e/*.spec.ts` | `npm run test:e2e` |
 
 **单测规则**：
-- 需要新测的纯逻辑先抽函数（参考 `parseToolRequest` 从 AgentRuntime 抽出的模式）。
+- 需要新测的纯逻辑先抽函数（v0.3 现行范例：`stepTranslator`/`fakeScript` 从 ClaudeAgentService 抽出的模式；历史上的 `parseToolRequest` 已随自研 provider 循环在 v0.3 移除）。
 - 涉及 SQLite 的用 `:memory:` 或 tmp 目录 + 手工建表；需要 app DB 语义时通过注入句柄（`SettingsStore(db)`）。
 - 断言行为不测实现：ring 容量断「保留最近 2000 条」而非内部数组长度常量。
 
@@ -163,6 +163,7 @@ git push --tags
 | 文字类研发（架构/编码/测试/文档） | 默认内核（fuyao-work 路由） | 长上下文工具链任务 |
 | **图片类输入**（设计稿、UI 截图对比、还原度检查） | **fuyao-coding** | 视觉理解路由 |
 | UI 实现后验收 | fuyao-coding 对图 → 修复用默认内核 | 各取所长 |
+| CreatorOS 产品内 agent 内核 | **Claude Code Agent SDK**（v0.3 起） | 产品运行时（非本仓库开发流程）：内置 Agent 聊天与 cron `agent.run` 每次 spawn claude CLI 子进程，浏览器工具走进程内 SDK MCP server（详见 `docs/ARCHITECTURE.md`） |
 
 约定写进流程而非口头：R1 产出设计稿后，验收步骤明确写「fuyao-coding 对图」；无图任务不经过该路由。
 

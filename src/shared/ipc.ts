@@ -18,13 +18,15 @@ export const IPC = {
   JOB_LIST: 'job:list',
   JOB_CREATE: 'job:create',
   JOB_TOGGLE: 'job:toggle',
-  AGENT_CHAT: 'agent:chat',
+  AGENT_RUN: 'agent:run',
+  AGENT_STOP: 'agent:stop',
+  EVENT_AGENT_STEP: 'event:agent-step',
+  EVENT_AGENT_DONE: 'event:agent-done',
   LOGS_LIST: 'logs:list',
   LOGS_CLEAR: 'logs:clear',
   SETTINGS_GET: 'settings:get',
   SETTINGS_SET: 'settings:set',
   SETTINGS_TEST_PROVIDER: 'settings:test-provider',
   EVENT_STATE_CHANGED: 'event:state-changed',
-  EVENT_BROWSER_CHANGED: 'event:browser-changed',
-  EVENT_AGENT_TOKEN: 'event:agent-token'
+  EVENT_BROWSER_CHANGED: 'event:browser-changed'
 } as const;

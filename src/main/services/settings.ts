@@ -1,10 +1,9 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { rawSqlite } from '../db/index.js';
-import type { ProviderConfig, ProviderTestResult } from '../../shared/types.js';
-import { configFromEnv, createProviderFromConfig } from '../agent/providers.js';
+import type { AgentEngineConfig } from '../../shared/types.js';
 import { logger } from './logger.js';
 
-const KEY = 'provider';
+const KEY = 'agent-engine';
 const log = logger.child('settings');
 
 type SettingsDb = Pick<DatabaseSync, 'prepare'>;
@@ -18,23 +17,38 @@ export class SettingsStore {
     return row?.value ?? null;
   }
 
-  get(): ProviderConfig {
+  get(): AgentEngineConfig {
     const raw = this.readRaw();
     if (raw) {
-      try { return JSON.parse(raw) as ProviderConfig; } catch { log.warn('Corrupt provider settings, falling back to env', { raw: raw.slice(0, 80) }); }
+      try {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        // Migrate legacy provider-config rows (v0.2 shape) to the engine config.
+        if ('provider' in parsed) return engineConfigFromEnv();
+        return parsed as AgentEngineConfig;
+      } catch { log.warn('Corrupt agent engine settings, falling back to env', { raw: raw.slice(0, 80) }); }
     }
-    return configFromEnv();
+    return engineConfigFromEnv();
   }
 
-  set(cfg: ProviderConfig): ProviderConfig {
+  set(cfg: AgentEngineConfig): AgentEngineConfig {
     const value = JSON.stringify(cfg);
     const now = Date.now();
     this.db.prepare(
       'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
     ).run(KEY, value, now);
-    log.info('Provider config saved', { provider: cfg.provider });
+    log.info('Agent engine config saved', { baseUrl: cfg.baseUrl, model: cfg.model });
     return cfg;
   }
+}
+
+/** Env fallback (also the v0.2 legacy-row migration target). */
+export function engineConfigFromEnv(): AgentEngineConfig {
+  return {
+    ...(process.env.ANTHROPIC_BASE_URL ? { baseUrl: process.env.ANTHROPIC_BASE_URL } : {}),
+    ...(process.env.ANTHROPIC_AUTH_TOKEN ? { authToken: process.env.ANTHROPIC_AUTH_TOKEN } : {}),
+    ...(process.env.ANTHROPIC_API_KEY ? { apiKey: process.env.ANTHROPIC_API_KEY } : {}),
+    ...(process.env.ANTHROPIC_MODEL ? { model: process.env.ANTHROPIC_MODEL } : {}),
+  };
 }
 
 /** App-wide store bound to the main-process database. */
@@ -42,20 +56,5 @@ export const settingsStore = new SettingsStore({
   prepare: (sql: string) => rawSqlite().prepare(sql),
 });
 
-export function getProviderConfig(): ProviderConfig { return settingsStore.get(); }
-export function setProviderConfig(cfg: ProviderConfig): ProviderConfig { return settingsStore.set(cfg); }
-
-/** One-shot completion against the current config. Returns a UI-friendly result; never throws. */
-export async function testProviderConnection(): Promise<ProviderTestResult> {
-  const cfg = getProviderConfig();
-  const provider = createProviderFromConfig(cfg);
-  try {
-    const reply = await provider.complete([{ role: 'user', content: 'ping' }]);
-    log.info('Provider test succeeded', { provider: provider.name });
-    return { ok: true, provider: provider.name, detail: reply.slice(0, 200) };
-  } catch (e) {
-    const detail = String(e);
-    log.warn('Provider test failed', { provider: provider.name, detail });
-    return { ok: false, provider: provider.name, detail };
-  }
-}
+export function getAgentEngineConfig(): AgentEngineConfig { return settingsStore.get(); }
+export function setAgentEngineConfig(cfg: AgentEngineConfig): AgentEngineConfig { return settingsStore.set(cfg); }

@@ -1,4 +1,4 @@
-import type { AppState, BrowserSnapshot, LogEntry, LogFilter, ProviderConfig, ProviderTestResult } from '../shared/types';
+import type { AppState, BrowserSnapshot, LogEntry, LogFilter, AgentEngineConfig, AgentStep, AgentRunResult } from '../shared/types';
 declare global { interface Window { creatorOS: {
   state:()=>Promise<AppState>;
   account:{create:(x:any)=>Promise<any>};
@@ -7,9 +7,11 @@ declare global { interface Window { creatorOS: {
   browser:{navigate:(u:string)=>Promise<void>;back:()=>Promise<void>;forward:()=>Promise<void>;reload:()=>Promise<void>;layout:(b:{x:number;y:number;width:number;height:number},v:boolean)=>Promise<void>;snapshot:()=>Promise<BrowserSnapshot>};
   content:{list:()=>Promise<any[]>;create:(x:any)=>Promise<any>;update:(id:string,x:any)=>Promise<void>};
   jobs:{list:()=>Promise<any[]>;create:(x:any)=>Promise<any>;toggle:(id:string,e:boolean)=>Promise<void>};
-  agent:{chat:(m:any[])=>Promise<{text:string;provider:string}>};
+  agent:{run:(prompt:string,resumeSessionId?:string)=>Promise<{runId:string}>;stop:(runId:string)=>Promise<boolean>};
   logs:{list:(f?:LogFilter)=>Promise<{entries:LogEntry[];modules:string[]}>;clear:()=>Promise<void>};
-  settings:{get:()=>Promise<ProviderConfig>;set:(x:ProviderConfig)=>Promise<ProviderConfig>;testProvider:()=>Promise<ProviderTestResult>};
+  settings:{get:()=>Promise<AgentEngineConfig>;set:(x:AgentEngineConfig)=>Promise<AgentEngineConfig>;testProvider:()=>Promise<{ok:boolean;detail:string}>};
   onStateChanged:(cb:()=>void)=>()=>void;
+  onAgentStep:(cb:(s:AgentStep)=>void)=>()=>void;
+  onAgentDone:(cb:(r:AgentRunResult)=>void)=>()=>void;
 }; } }
 export {};

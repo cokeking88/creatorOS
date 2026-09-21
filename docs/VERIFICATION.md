@@ -1,5 +1,24 @@
 # Verification status
 
+## 2026-09-22 v0.3 final release — docs sync, gate green
+
+- Scope: agent kernel replaced by the Claude Code Agent SDK + live step streaming (spec `docs/specs/agent-claude-code.md`). Full gate re-run for the release commit: `npm run gate` exit 0 (vitest 6 files / 43 tests, playwright 27 tests in 6 spec files — launch/logs/browser kept, agent/settings rewritten, cron-agent added; all offline via `CREATOROS_FAKE_CLAUDE=1`).
+- The R0–R5 flow was re-run end to end for this feature with a spec artifact chain: `agent-claude-code.md` (R0 需求) → `agent-claude-code-ui.md` (R1 UI) → `agent-claude-code-arch.md` (R2 架构) → `agent-claude-code-dev-report.md` (R3 开发自检) → `agent-claude-code-test-report.md` (R4 测试). R4 details below.
+- Docs synced at R5 (DoD #4): README, USAGE_CN, ARCHITECTURE, SECURITY, API, WORKFLOW_CN §8 kernel routing, DEVELOPMENT_PLAN_CN M2 addendum.
+
+## 2026-09-22 v0.3 R4 — dual test layers green (Claude Code agent)
+
+- vitest **6 files / 43 tests** (~0.8s): logger, stepTranslator (msgUuid/durationMs/is_error), settings migration, + new stepBus / runRegistry / fakeScript suites (fake script goes through the real translator — same path as E2E).
+- playwright e2e **27 tests / 5 specs** (~10–15s, fully offline): launch/logs/browser kept green; agent.spec + settings.spec rewritten, cron-agent.spec added. `npm run gate` exit 0.
+- Two R3 defects surfaced by E2E and fixed in R4: (1) steps were published without the `source` enrichment → cron banner could never show; (2) Gateway `reply400()` shaped a JSON body but returned HTTP 200, so invalid jobs were **persisted** — now `reply.code(400)` + success path returns 201.
+- `launchApp()` scrubs ambient `ANTHROPIC_*` env vars: a dev shell running Claude Code exports them, and they leak into `engineConfigFromEnv()` making "default empty config" assertions non-deterministic (same class of issue R3 hit on the vitest side).
+
+### New Playwright gotchas (v0.3, settings.spec stability)
+
+- `electronApp.close()` **occasionally hangs ~forever on darwin** when the test runner has exercised the app first (stress-repeat runs stalled 60s per repeat; a standalone node script closing/restarting the same app never hangs — runner-only interaction). Fix: bounded close — race `close()` against a 5s timer, then `process().kill('SIGKILL')`. Safe for persistence assertions because `settings.set` commits synchronously (WAL).
+- Restart tests: keep them **last** in the file and hand the relaunched instance to `afterAll`; do NOT launch a third app mid-suite to "restore" a live `app` handle.
+- Tests must await their own runs to completion even when asserting "returns immediately" — a fire-and-forget run's steps leak into a later test's onAgentStep collector (worker keeps the renderer alive between tests in a file).
+
 ## 2026-09-21 v0.2.1 — dual test layers green
 
 - Added **Vitest** unit layer (20 cases, ~0.8s): logger ring/rotation/level-threshold/child-tags/file-flush, provider fallback branches + env mapping, `parseToolRequest` (fences/prose/noise), `SettingsStore` SQLite roundtrip/upsert/env-fallback/corrupt-row.

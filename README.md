@@ -1,4 +1,4 @@
-# CreatorOS v0.1
+# CreatorOS v0.3
 
 Local-first AI creator operations workspace. The defining property of this MVP is a **persistent browser runtime embedded inside the desktop app**: Electron `WebContentsView` + `persist:` profile sessions + a main-process BrowserKernel. Agents, cron jobs and external bots operate that same internal browser runtime.
 
@@ -13,10 +13,11 @@ Local-first AI creator operations workspace. The defining property of this MVP i
 - CDP attach escape hatch (`webContents.debugger`)
 - SQLite using Node's built-in `node:sqlite` + Drizzle schema/repository
 - Content draft management
-- Persisted cron jobs + scheduler
+- Persisted cron jobs + scheduler, including `agent.run` jobs that hand a scheduled prompt to the same agent engine as the chat panel
 - Local Fastify gateway and Feishu webhook skeleton
-- Agent Runtime with Mock / Anthropic / OpenAI-compatible providers
-- MCP v2 stdio bridge to the running app
+- Claude Code Agent SDK kernel (`@anthropic-ai/claude-agent-sdk`): per-run `claude` CLI subprocess with browser tools served by an in-process SDK MCP server (15 `browser_*` tools bound to BrowserKernel)
+- Live agent step stream: SDK stream messages translated to typed steps (tool start/result with duration, text deltas, done with cost/duration) pushed over IPC to the agent panel
+- MCP v2 stdio bridge to the running app (same browser tool semantics as the internal in-process server)
 - Hardened preload IPC boundary
 - Technical design DOCX under `docs/`
 
@@ -44,28 +45,18 @@ pnpm dev
 
 The project intentionally does **not** launch Google Chrome, Playwright Chromium or a headless browser.
 
-## Real provider configuration
+## Agent engine configuration
 
-Default is `mock`, so the app starts without any API key.
-
-Anthropic:
+The internal agent is a Claude Code Agent SDK run: every run spawns a `claude` CLI subprocess speaking the Anthropic protocol. Configure the endpoint on the Settings page (saved to SQLite, applied to the next run without a restart) or via environment variables as the startup default:
 
 ```env
-CREATOROS_AGENT_PROVIDER=anthropic
-ANTHROPIC_API_KEY=...
+ANTHROPIC_BASE_URL=https://api.anthropic.com   # or an Anthropic-protocol relay/gateway
+ANTHROPIC_AUTH_TOKEN=...                        # Authorization: Bearer (takes precedence)
+ANTHROPIC_API_KEY=...                           # x-api-key header
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-OpenAI-compatible gateway:
-
-```env
-CREATOROS_AGENT_PROVIDER=openai-compatible
-OPENAI_COMPAT_BASE_URL=https://your-gateway.example/v1
-OPENAI_COMPAT_API_KEY=...
-OPENAI_COMPAT_MODEL=your-model
-```
-
-Restart after changing provider environment variables.
+Settings-page values win over environment variables. `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY` are alternatives; the token wins when both are set. Use the Settings page "Test connection" button to run a minimal query against the current config.
 
 ## Local gateway
 
@@ -78,7 +69,10 @@ curl -H 'Authorization: Bearer change-me' http://127.0.0.1:17890/api/state
 
 ## MCP
 
-CreatorOS must be running, then:
+Two paths expose the same `browser_*` tool semantics bound to the single BrowserKernel runtime:
+
+- **In-process SDK MCP server** (`creatoros-browser`): the internal agent's tool surface — 15 `browser_*` tools served to the spawned `claude` subprocess via `createSdkMcpServer`, no network hop.
+- **External stdio bridge** for outside clients (Claude Code, Claude Desktop, any MCP host): the app must be running, then:
 
 ```bash
 CREATOROS_GATEWAY_TOKEN=change-me npm run mcp
@@ -88,9 +82,7 @@ See `docs/MCP.md`.
 
 ## MVP boundaries / TODO
 
-This repository is a runnable foundation, not a finished commercial publisher. Before using it for unattended posting, add platform-specific adapters, confirmation gates, robust selector strategies, download/upload tooling, provider tool-calling loops, encrypted secret storage, Feishu signature verification, migrations/versioning, automated tests and per-platform observability.
-
-The internal Agent panel includes a bounded JSON tool loop over BrowserKernel primitives. For production, replace the JSON-action protocol with the native tool-calling API of your chosen provider and add richer confirmation/policy controls.
+This repository is a runnable foundation, not a finished commercial publisher. Before using it for unattended posting, add platform-specific adapters, confirmation gates, robust selector strategies, download/upload tooling, encrypted secret storage (engine keys are currently plain JSON in SQLite), Feishu signature verification, migrations/versioning and per-platform observability.
 
 ## Docs
 
@@ -103,3 +95,6 @@ The internal Agent panel includes a bounded JSON tool loop over BrowserKernel pr
 - `docs/DATABASE.md`
 - `docs/VERIFICATION.md`
 - `docs/QUICKSTART_CN.md`
+- `docs/USAGE_CN.md`
+- `docs/WORKFLOW_CN.md` (R&D workflow, R0–R5)
+- `docs/DEVELOPMENT_PLAN_CN.md` (milestones)
