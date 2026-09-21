@@ -20,16 +20,21 @@ Available tools: snapshot, navigate(url), back, forward, reload, click(ref), fil
 
 type ToolRequest = { tool: string; args?: Record<string, unknown> } | { final: string };
 
+/** Parse a provider reply into a tool request / final answer. Exported for unit tests. */
+export function parseToolRequest(raw: string): ToolRequest | null {
+  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+  try { return JSON.parse(cleaned) as ToolRequest; } catch { /* fall through to brace scan */ }
+  const start = cleaned.indexOf('{'); const end = cleaned.lastIndexOf('}');
+  if (start >= 0 && end > start) { try { return JSON.parse(cleaned.slice(start, end + 1)) as ToolRequest; } catch { /* unparseable */ } }
+  return null;
+}
+
 export class AgentRuntime {
   private log = logger.child('agent');
   constructor(private browser: BrowserKernel) {}
 
   private parse(raw: string): ToolRequest | null {
-    const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    try { return JSON.parse(cleaned) as ToolRequest; } catch {}
-    const start = cleaned.indexOf('{'); const end = cleaned.lastIndexOf('}');
-    if (start >= 0 && end > start) { try { return JSON.parse(cleaned.slice(start, end + 1)) as ToolRequest; } catch {} }
-    return null;
+    return parseToolRequest(raw);
   }
 
   private async runTool(name: string, args: Record<string, unknown> = {}) {

@@ -1,3 +1,4 @@
+import type { DatabaseSync } from 'node:sqlite';
 import { rawSqlite } from '../db/index.js';
 import type { ProviderConfig, ProviderTestResult } from '../../shared/types.js';
 import { configFromEnv, createProviderFromConfig } from '../agent/providers.js';
@@ -6,29 +7,43 @@ import { logger } from './logger.js';
 const KEY = 'provider';
 const log = logger.child('settings');
 
-function readRaw(): string | null {
-  const row = rawSqlite().prepare('SELECT value FROM settings WHERE key = ?').get(KEY) as { value: string } | undefined;
-  return row?.value ?? null;
-}
+type SettingsDb = Pick<DatabaseSync, 'prepare'>;
 
-/** Current provider config. Saved DB config wins; falls back to environment defaults. */
-export function getProviderConfig(): ProviderConfig {
-  const raw = readRaw();
-  if (raw) {
-    try { return JSON.parse(raw) as ProviderConfig; } catch { log.warn('Corrupt provider settings, falling back to env', { raw: raw.slice(0, 80) }); }
+/** Settings store over any sqlite handle — thin wrapper, unit-testable without Electron. */
+export class SettingsStore {
+  constructor(private db: SettingsDb) {}
+
+  readRaw(): string | null {
+    const row = this.db.prepare('SELECT value FROM settings WHERE key = ?').get(KEY) as { value: string } | undefined;
+    return row?.value ?? null;
   }
-  return configFromEnv();
+
+  get(): ProviderConfig {
+    const raw = this.readRaw();
+    if (raw) {
+      try { return JSON.parse(raw) as ProviderConfig; } catch { log.warn('Corrupt provider settings, falling back to env', { raw: raw.slice(0, 80) }); }
+    }
+    return configFromEnv();
+  }
+
+  set(cfg: ProviderConfig): ProviderConfig {
+    const value = JSON.stringify(cfg);
+    const now = Date.now();
+    this.db.prepare(
+      'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
+    ).run(KEY, value, now);
+    log.info('Provider config saved', { provider: cfg.provider });
+    return cfg;
+  }
 }
 
-export function setProviderConfig(cfg: ProviderConfig): ProviderConfig {
-  const value = JSON.stringify(cfg);
-  const now = Date.now();
-  rawSqlite().prepare(
-    'INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at'
-  ).run(KEY, value, now);
-  log.info('Provider config saved', { provider: cfg.provider });
-  return cfg;
-}
+/** App-wide store bound to the main-process database. */
+export const settingsStore = new SettingsStore({
+  prepare: (sql: string) => rawSqlite().prepare(sql),
+});
+
+export function getProviderConfig(): ProviderConfig { return settingsStore.get(); }
+export function setProviderConfig(cfg: ProviderConfig): ProviderConfig { return settingsStore.set(cfg); }
 
 /** One-shot completion against the current config. Returns a UI-friendly result; never throws. */
 export async function testProviderConnection(): Promise<ProviderTestResult> {

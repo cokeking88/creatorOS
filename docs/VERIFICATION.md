@@ -1,5 +1,12 @@
 # Verification status
 
+## 2026-09-21 v0.2.1 — dual test layers green
+
+- Added **Vitest** unit layer (20 cases, ~0.8s): logger ring/rotation/level-threshold/child-tags/file-flush, provider fallback branches + env mapping, `parseToolRequest` (fences/prose/noise), `SettingsStore` SQLite roundtrip/upsert/env-fallback/corrupt-row.
+- `npm run gate` now = ESLint → 4×typecheck (renderer/main/e2e/test) → build → **vitest** → **playwright E2E 18**.
+- Testability refactors: `parseToolRequest` extracted from AgentRuntime; `SettingsStore` takes an injected sqlite handle; `Logger.close()` flush hook; `setSqliteForTesting` on db/index.
+- New `docs/WORKFLOW_CN.md`: full R0 需求 → R1 UI（fuyao-coding 对图）→ R2 架构 → R3 开发 → R4 双层测试 → G 门禁 → R5 发布 workflow with per-stage stop conditions and DoD.
+
 ## 2026-09-21 v0.2 — full gate green (real machine, macOS arm64)
 
 - `npm install`: OK (Electron 44.4.0 binary via npmmirror; drizzle-orm `node-sqlite` dist-tag 1.0.0-beta.16).

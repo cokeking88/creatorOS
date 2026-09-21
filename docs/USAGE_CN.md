@@ -539,10 +539,11 @@ MCP 桥额外支持 `CREATOROS_GATEWAY_URL`（默认 `http://127.0.0.1:17890`）
 | `npm run dev` | 开发模式（Vite + tsc watch + Electron 热启动） |
 | `npm run build` | 生产构建（renderer + 主进程 + MCP 工具） |
 | `npm start` | 直接启动 Electron（需先 build） |
-| `npm run typecheck` | 全量 TS 类型检查（renderer + main + e2e 三套） |
+| `npm run typecheck` | 全量 TS 类型检查（renderer + main + e2e + test 四套） |
 | `npm run lint` | ESLint 检查（0 error 门禁，any 为警告） |
-| `npm run test:e2e` | Playwright E2E（18 用例，自动拉起 fixture server） |
-| `npm run gate:fast` | 快速门禁：lint + typecheck + build（pre-commit 钩子） |
+| `npm run test` | **Vitest 单元测试**（logger/providers/parse/settings，秒级） |
+| `npm run test:e2e` | **Playwright E2E**（18 用例，自动拉起 fixture server） |
+| `npm run gate:fast` | 快速门禁：lint + typecheck + build + 单测（pre-commit 钩子） |
 | `npm run gate` | 全量门禁：gate:fast + E2E（pre-push 钩子 / CI） |
 | `npm run doctor` | 环境自检 |
 | `npm run mcp` | 启动 MCP stdio 桥（源码版） |

@@ -27,6 +27,25 @@ class LoggerState {
     this.cleanupOldLogs();
   }
 
+  /** Flush pending lines now. Used by tests and shutdown. */
+  close() {
+    if (this.flushTimer) { clearTimeout(this.flushTimer); this.flushTimer = null; }
+    this.flushNow();
+  }
+
+  private flushNow() {
+    if (!this.dir || !this.pending.length) return;
+    const lines = this.pending.join('\n') + '\n';
+    this.pending = [];
+    try {
+      const file = join(this.dir, `creatoros-${new Date().toISOString().slice(0, 10)}.log`);
+      try {
+        if (statSync(file).size + lines.length > MAX_FILE_BYTES) renameSync(file, `${file}.old`);
+      } catch { /* file does not exist yet */ }
+      appendFileSync(file, lines);
+    } catch { /* disk failures must never crash the app */ }
+  }
+
   push(entry: LogEntry, fileLine: string) {
     this.ring.push(entry);
     if (this.ring.length > RING_CAPACITY) this.ring.splice(0, this.ring.length - RING_CAPACITY);
@@ -38,20 +57,7 @@ class LoggerState {
 
   private scheduleFlush() {
     if (this.flushTimer) return;
-    this.flushTimer = setTimeout(() => { this.flushTimer = null; this.flush(); }, FLUSH_INTERVAL_MS);
-  }
-
-  private flush() {
-    if (!this.dir || !this.pending.length) return;
-    const lines = this.pending.join('\n') + '\n';
-    this.pending = [];
-    try {
-      const file = join(this.dir, `creatoros-${new Date().toISOString().slice(0, 10)}.log`);
-      try {
-        if (statSync(file).size + lines.length > MAX_FILE_BYTES) renameSync(file, `${file}.old`);
-      } catch { /* file does not exist yet */ }
-      appendFileSync(file, lines);
-    } catch { /* disk failures must never crash the app */ }
+    this.flushTimer = setTimeout(() => { this.flushTimer = null; this.flushNow(); }, FLUSH_INTERVAL_MS);
   }
 
   private cleanupOldLogs() {
@@ -72,6 +78,9 @@ export class Logger {
 
   /** Point the logger at a directory. Applies to the whole logger tree. Safe to call before app is ready. */
   init(dir: string) { this.state.init(dir); }
+
+  /** Flush and stop the async writer. */
+  close() { this.state.close(); }
 
   /** A tagged child logger sharing the same ring buffer and file output. */
   child(module: string): Logger { return new Logger(this.state, module); }

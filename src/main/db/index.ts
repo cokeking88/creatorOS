@@ -63,3 +63,6 @@ function seedDefaults() {
 }
 
 export function rawSqlite() { return sqlite; }
+
+/** Test hook: point the module at an externally created database (initDatabase uses Electron paths). */
+export function setSqliteForTesting(external: DatabaseSync) { sqlite = external; }
