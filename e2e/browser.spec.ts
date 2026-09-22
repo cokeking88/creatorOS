@@ -52,3 +52,17 @@ test('tabs list reflects the fixture page', async () => {
   expect(tab.url).toContain('127.0.0.1:17992');
   expect(tab.title).toBe('CreatorOS Fixture Page');
 });
+
+test('embedded session presents a standard Chrome UA (hygiene, not spoofing)', async () => {
+  // AC2 of docs/specs/ua-standardization.md: no Electron/app tokens leak into
+  // pages browsed inside the embedded browser, and the version is the REAL
+  // engine version (not the placeholder fallback).
+  const r = await gw.post('/api/browser/evaluate', { expression: 'navigator.userAgent' });
+  const ua = String(r.json.result);
+  expect(ua).toMatch(/Chrome\/\d+\.\d+\.\d+\.\d+/);
+  expect(ua).not.toContain('Chrome/0.0.0.0'); // UA source must be bound before first session
+  expect(ua).toContain('Macintosh'); // test runs on darwin
+  expect(ua).not.toContain('Electron');
+  expect(ua).not.toContain('reatorOS'); // matches CreatorOS and creatoros
+  expect(ua).not.toContain('creatoros');
+});

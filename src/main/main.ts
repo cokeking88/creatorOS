@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initDatabase } from './db/index.js';
 import { BrowserKernel } from './browser/BrowserKernel.js';
+import { bindUaSource } from './browser/ProfileManager.js';
 import { Scheduler } from './scheduler/Scheduler.js';
 import { initClaudeAgent } from './agent/claudeAgent.js';
 import { createStepBus } from './agent/stepBus.js';
@@ -33,6 +34,7 @@ agentBus.subscribe((ev) => {
 
 async function createWindow() {
   mainWindow = new BrowserWindow({ width:1440,height:900,minWidth:1100,minHeight:700,title:'CreatorOS',backgroundColor:'#0f1115',webPreferences:{preload:join(__dirname,'../preload/preload.cjs'),contextIsolation:true,sandbox:true,nodeIntegration:false,webSecurity:true} });
+  bindUaSource(mainWindow.webContents);
   const changed=()=>mainWindow?.webContents.send('event:state-changed');
   kernel = new BrowserKernel(mainWindow, changed); initDatabase(); kernel.bootstrap();
   const agent = initClaudeAgent(kernel, { bus: agentBus });
