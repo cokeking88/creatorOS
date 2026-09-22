@@ -1,5 +1,5 @@
 import { test } from '@playwright/test';
-import { expect, FIXTURE_PAGE_URL, gw, launchApp, waitForGateway } from './helpers.js';
+import {closeApp,  expect, FIXTURE_PAGE_URL, gw, launchApp, waitForGateway } from './helpers.js';
 
 let app: Awaited<ReturnType<typeof launchApp>>;
 
@@ -8,7 +8,7 @@ test.beforeAll(async () => {
   await waitForGateway();
 });
 
-test.afterAll(async () => { await app.electronApp.close(); });
+test.afterAll(async () => { await closeApp(app); });
 
 test('gateway and app modules log at startup', async () => {
   const r = await gw.get('/api/logs');

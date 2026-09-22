@@ -64,4 +64,20 @@ export async function waitForGateway(timeoutMs = 15000) {
 }
 
 export const FIXTURE_PAGE_URL = FIXTURE_URL;
+
+/**
+ * Bounded close: Playwright's graceful electronApp.close() occasionally hangs
+ * forever on darwin once the runner has exercised the app (GPU/renderer
+ * teardown race). Race it against a 5s timer, then SIGKILL. Safe for
+ * persistence assertions: settings/DB writes commit synchronously (WAL).
+ */
+export async function closeApp(app: Launched) {
+  const proc = app.electronApp.process();
+  const graceful = app.electronApp.close().catch(() => {});
+  const timeout = new Promise((r) => setTimeout(r, 5_000));
+  await Promise.race([graceful, timeout]);
+  if (proc.exitCode === null && !proc.killed) proc.kill('SIGKILL');
+  await graceful;
+}
+
 export { expect };

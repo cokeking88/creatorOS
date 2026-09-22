@@ -3,6 +3,7 @@ export const IPC = {
   ACCOUNT_CREATE: 'account:create',
   PROFILE_CREATE: 'profile:create',
   PROFILE_ACTIVATE: 'profile:activate',
+  PROFILE_RENAME: 'profile:rename',
   TAB_CREATE: 'tab:create',
   TAB_ACTIVATE: 'tab:activate',
   TAB_CLOSE: 'tab:close',

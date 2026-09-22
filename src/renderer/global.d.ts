@@ -2,7 +2,7 @@ import type { AppState, BrowserSnapshot, LogEntry, LogFilter, AgentEngineConfig,
 declare global { interface Window { creatorOS: {
   state:()=>Promise<AppState>;
   account:{create:(x:any)=>Promise<any>};
-  profile:{create:(x:any)=>Promise<any>;activate:(id:string)=>Promise<void>};
+  profile:{create:(x:any)=>Promise<any>;activate:(id:string)=>Promise<void>;rename:(id:string,name:string)=>Promise<void>};
   tab:{create:(p?:string,u?:string)=>Promise<string>;activate:(id:string)=>Promise<void>;close:(id:string)=>Promise<void>};
   browser:{navigate:(u:string)=>Promise<void>;back:()=>Promise<void>;forward:()=>Promise<void>;reload:()=>Promise<void>;layout:(b:{x:number;y:number;width:number;height:number},v:boolean)=>Promise<void>;snapshot:()=>Promise<BrowserSnapshot>};
   content:{list:()=>Promise<any[]>;create:(x:any)=>Promise<any>;update:(id:string,x:any)=>Promise<void>};

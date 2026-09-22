@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { expect, gw, launchApp, waitForGateway, type Launched } from './helpers.js';
+import {closeApp,  expect, gw, launchApp, waitForGateway, type Launched } from './helpers.js';
 
 /**
  * AC8 — cron agent.run jobs go through the SAME ClaudeAgentService as the chat
@@ -22,7 +22,7 @@ test.beforeAll(async () => {
   await waitForGateway();
 });
 
-test.afterAll(async () => { await app.electronApp.close(); });
+test.afterAll(async () => { await closeApp(app); });
 
 type Step = { runId: string; seq: number; type: string; tool?: string; source?: string };
 type Done = { runId: string; sessionId: string | null; ok: boolean; text: string; stepCount: number; source?: string };

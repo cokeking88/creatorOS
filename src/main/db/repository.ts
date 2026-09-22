@@ -21,6 +21,9 @@ export const repo = {
     const row = { id: nanoid(), name: input.name, partition: `persist:profile-${nanoid(10)}`, platform: input.platform ?? null, accountId: input.accountId ?? null, createdAt: now, updatedAt: now };
     db.insert(browserProfiles).values(row).run(); return row;
   },
+  renameProfile(id: string, name: string): void {
+    db.update(browserProfiles).set({ name, updatedAt: Date.now() }).where(eq(browserProfiles.id, id)).run();
+  },
   listContents(): ContentItem[] { return db.select().from(contents).orderBy(desc(contents.updatedAt)).all() as ContentItem[]; },
   createContent(input: Pick<ContentItem, 'title'|'body'|'platform'> & Partial<ContentItem>): ContentItem {
     const now = Date.now();

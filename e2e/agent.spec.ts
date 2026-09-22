@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { expect, launchApp, waitForGateway, type Launched } from './helpers.js';
+import {closeApp,  expect, launchApp, waitForGateway, type Launched } from './helpers.js';
 
 /**
  * AC1/AC3/AC4/AC9/AC13 (offline, CREATOROS_FAKE_CLAUDE=1 injected by launchApp).
@@ -22,7 +22,7 @@ test.beforeAll(async () => {
   await waitForGateway();
 });
 
-test.afterAll(async () => { await app.electronApp.close(); });
+test.afterAll(async () => { await closeApp(app); });
 
 type Step = {
   runId: string; seq: number; time: number; type: string;

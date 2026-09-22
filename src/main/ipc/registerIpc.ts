@@ -16,6 +16,7 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
   ipcMain.handle(IPC.ACCOUNT_CREATE,(_e,input)=>{const a=repo.createAccount(input);changed();return a;});
   ipcMain.handle(IPC.PROFILE_CREATE,(_e,input)=>{const p=browser.profiles.create(input);browser.activateProfile(p.id);changed();return p;});
   ipcMain.handle(IPC.PROFILE_ACTIVATE,(_e,id)=>{browser.activateProfile(id);changed();});
+  ipcMain.handle(IPC.PROFILE_RENAME,(_e,id:string,name:string)=>{repo.renameProfile(id,name);changed();});
   ipcMain.handle(IPC.TAB_CREATE,(_e,profileId,url)=>{const t=browser.createTab(profileId,url);changed();return t.id;});
   ipcMain.handle(IPC.TAB_ACTIVATE,(_e,id)=>{browser.activateTab(id);changed();});
   ipcMain.handle(IPC.TAB_CLOSE,(_e,id)=>{browser.closeTab(id);changed();});

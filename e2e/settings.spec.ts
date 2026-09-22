@@ -1,7 +1,7 @@
 import { test } from '@playwright/test';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import { expect, launchApp, waitForGateway, type Launched } from './helpers.js';
+import {closeApp,  expect, launchApp, waitForGateway, type Launched } from './helpers.js';
 
 /**
  * AC5/AC6/AC7 — Settings engine config (offline). The app runs with
@@ -15,17 +15,6 @@ import { expect, launchApp, waitForGateway, type Launched } from './helpers.js';
  */
 
 /** Close an Electron app with a bounded, hard-kill fallback. */
-async function closeApp(app: Launched) {
-  const proc = app.electronApp.process();
-  const graceful = app.electronApp.close().catch(() => {});
-  const timeout = new Promise((r) => setTimeout(r, 5_000));
-  await Promise.race([graceful, timeout]);
-  // close() occasionally hangs on darwin (the CLI-respawned first close races
-  // in-flight GPU/renderer teardown). SIGKILL is safe here: settings.set
-  // commits synchronously to SQLite (WAL), so persisted data survives either way.
-  if (proc.exitCode === null && !proc.killed) proc.kill('SIGKILL');
-  await graceful;
-}
 
 let app: Launched;
 
