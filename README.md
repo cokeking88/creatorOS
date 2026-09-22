@@ -1,5 +1,7 @@
 # CreatorOS v0.3
 
+[中文说明 / 中文版 README](./README_CN.md)
+
 Local-first AI creator operations workspace. The defining property of this MVP is a **persistent browser runtime embedded inside the desktop app**: Electron `WebContentsView` + `persist:` profile sessions + a main-process BrowserKernel. Agents, cron jobs and external bots operate that same internal browser runtime.
 
 ## Screenshots
