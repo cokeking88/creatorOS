@@ -1,0 +1,23 @@
+docs/VERIFICATION.md
+  s_a5d1a373f7f2b8::t_6a405c92cc738e 3-12
+src/main/agent/claudeAgent.ts
+  s_a5d1a373f7f2b8::t_f203dc35c31cf5 2
+  s_a5d1a373f7f2b8::t_33e7095b66c1bc 78-81
+  s_a5d1a373f7f2b8::t_2e2bac92a94e84 93
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "21386072039c52bc2bd80a778ab4ffdc57e570df",
+  "prompts": {},
+  "sessions": {
+    "s_a5d1a373f7f2b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ba06520-6c0a-4f73-8c1a-1f1639e94bd3",
+        "model": "glm-5.3"
+      },
+      "human_author": "yangnq <yangnq@xiaopeng.com>"
+    }
+  }
+}
