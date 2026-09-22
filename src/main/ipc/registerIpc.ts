@@ -8,6 +8,7 @@ import { logger } from '../services/logger.js';
 import { getAgentEngineConfig, setAgentEngineConfig } from '../services/settings.js';
 import { getClaudeAgent, type ClaudeAgentService } from '../agent/claudeAgent.js';
 import { nanoid } from 'nanoid';
+import { AccountFilesService, accountRoot, ensureAccountDir } from '../services/accountFiles.js';
 
 export function registerIpc(win: BrowserWindow, browser: BrowserKernel, scheduler: Scheduler, agent: ClaudeAgentService) {
   const state=()=>({platforms:repo.listPlatforms(),accounts:repo.listAccounts(),profiles:repo.listProfiles(),tabs:browser.tabs.list(),contents:repo.listContents(),jobs:repo.listJobs(),activeProfileId:browser.activeProfile,activeTabId:browser.activeTab});
@@ -46,4 +47,44 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
     return {runId};
   });
   ipcMain.handle(IPC.AGENT_STOP,(_e,runId: string)=>agent.stop(runId));
+
+  // --- Account files (fenced to <userData>/accounts/<accountId>) ---
+  const filesLog = logger.child('files');
+  let filesWatcher: import('chokidar').FSWatcher | null = null;
+  let watchedAccount: string | null = null;
+  const filesChanged = (accountId: string, relPath: string | null) => {
+    if (!win.isDestroyed()) win.webContents.send(IPC.EVENT_FILES_CHANGED, { accountId, relPath });
+  };
+  const stopFilesWatcher = async () => { if (filesWatcher) { await filesWatcher.close(); filesWatcher = null; } watchedAccount = null; };
+  const svc = (accountId: string) => new AccountFilesService(accountId);
+  ipcMain.handle(IPC.FILES_READ, (_e, accountId: string, rel: string) => svc(accountId).read(rel));
+  ipcMain.handle(IPC.FILES_WRITE, (_e, accountId: string, rel: string, content: string) => {
+    const r = svc(accountId).write(rel, content);
+    filesLog.info('File written', { accountId, rel });
+    return r;
+  });
+  ipcMain.handle(IPC.FILES_MKDIR, (_e, accountId: string, rel: string) => { svc(accountId).mkdir(rel); return { ok: true }; });
+  ipcMain.handle(IPC.FILES_RENAME, (_e, accountId: string, from: string, to: string) => { svc(accountId).rename(from, to); filesLog.info('File renamed', { accountId, from, to }); return { ok: true }; });
+  ipcMain.handle(IPC.FILES_LIST, async (_e, accountId: string) => {
+    // Watching happens on list (Files page open / account switch): single watcher per app.
+    // The account dir also becomes the agent's cwd + file-tool fence for subsequent runs.
+    agent.setAccountDir(ensureAccountDir(accountId));
+    if (watchedAccount !== accountId) {
+      await stopFilesWatcher();
+      const { default: chokidar } = await import('chokidar');
+      const root = accountRoot(accountId);
+      watchedAccount = accountId;
+      filesWatcher = chokidar.watch(root, {
+        ignoreInitial: true,
+        ignored: [/(^|[/\\])\.DS_Store$/, /(^|[/\\])\.git\//],
+        awaitWriteFinish: { stabilityThreshold: 250, pollInterval: 50 },
+      });
+      filesWatcher.on('all', (_ev: string, absPath: string) => {
+        filesChanged(accountId, absPath.slice(root.length).replace(/^\//, '') || null);
+      });
+      filesLog.info('Watching account dir', { accountId });
+    }
+    return svc(accountId).list();
+  });
+  win.on('closed', () => { void stopFilesWatcher(); });
 }

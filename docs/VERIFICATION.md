@@ -1,5 +1,14 @@
 # Verification status
 
+## 2026-09-22 v0.3.3 — account files + agent fence
+
+- Feature spec: docs/specs/account-files.md (R0+R1+R2 combined; open-source selection researched: CodeMirror 6 / react-arborist / chokidar 5 / SDK cwd+hook fence, sources in spec).
+- vitest 61 (fence suite: ../ escape, absolute escape, sibling-prefix, symlink escape in+out, macOS /var vs /private/var tmp symlink asymmetric-realpath bug found and fixed in isInsideRoot).
+- e2e 33: new files.spec (seeded layout on create, editor save round-trips to real disk via node:fs, chokidar watcher refresh on external write, mkdir/rename fenced on disk + escape write rejected).
+- Security fix bundled (SECURITY.md #12): before v0.3.3, allowedTools could NOT constrain bypassPermissions (SDK semantics), so file tools and Bash were effectively open since v0.3.0. Now: PreToolUse hook fences file tools to the active account dir (realpath), Bash denied outright, maxTurns 40 / maxBudgetUsd 0.5 on every run.
+- Playwright lesson re-learned: <option> elements are display:none inside a closed <select> — toBeVisible never passes; assert presence (toHaveCount) instead.
+
+
 ## 2026-09-22 v0.3.2 — fix: SDK "binary failed to launch" (misleading error)
 
 **Symptom**: every real (non-fake) agent run in the app failed with `Claude Code native binary ... exists but failed to launch ... libc / musl` — even though the binary is healthy (runs standalone, in node, and in Electron without options).

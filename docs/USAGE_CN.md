@@ -133,7 +133,7 @@ npm run doctor
 
 ## 4. 界面功能总览
 
-左侧导航栏有 7 个页面，右侧常驻 Agent 面板。
+左侧导航栏有 8 个页面，右侧常驻 Agent 面板。
 
 ### 4.1 Dashboard ◫ 仪表盘
 
@@ -224,11 +224,30 @@ npm run doctor
 
 **Jobs 列表：** 每条任务显示 cron 表达式和类型（`agent.run` 任务额外显示 prompt 首行），`enabled` 复选框随时开关（立即生效，无需重启）。手动立即触发一个任务可用 API（见 [§8](#8-本地-gateway-http-api)）。每次运行记录到 `job_runs` 表（含状态、输出、错误）；`agent.run` 的输出含 Agent 文本结果、步骤数与 sessionId。
 
-### 4.6 Agent 面板（右侧常驻）
+### 4.6 Files ✜ 账号文件管理（v0.3.3 新增）
+
+每个运营账号一个专属本地目录（Obsidian 式「磁盘即真相」，无中央索引）：
+
+```
+~/Library/Application Support/creatoros/accounts/<账号ID>/
+├── CLAUDE.md   # 目录约定（Agent 子进程自动读取）
+├── drafts/     # 草稿/成稿（markdown）
+├── assets/     # 图片附件
+└── data/       # 结构化数据（json/csv）
+```
+
+- **文件树**：react-arborist 虚拟化树，点文件打开
+- **编辑器**：CodeMirror 6（markdown 高亮 + 代码块语言），保存写回真实磁盘
+- **三态**：未保存 ● / 磁盘被外部（Agent）改过 ⚠（可选重新加载或用我的覆盖）/ 保存失败红条
+- **新建/重命名**：内联输入，Enter 确认 Esc 取消；路径被围栏限制在账号目录内
+- **Agent 同管**：Files 页打开某账号后，Agent 的文件工具（Read/Write/Edit/Glob/Grep）以该目录为 cwd，PreToolUse hook 把所有路径围栏在目录内（含 symlink 防逃逸），Bash 一律拒绝——即使 bypassPermissions。到 Agent 面板说「在 drafts 里写一篇开头」即可看到文件出现在树里（chokidar watcher 实时刷新）
+- 打开账号目录的同时该目录成为 Agent cwd；未选账号时文件工具全部拒绝
+
+### 4.7 Agent 面板（右侧常驻）
 
 和内置 Agent 对话，见下一节。
 
-### 4.7 Logs ⌗ 日志（v0.2 新增）
+### 4.8 Logs ⌗ 日志（v0.2 新增）
 
 全应用结构化日志的实时查看页：
 
@@ -239,7 +258,7 @@ npm run doctor
 
 底层机制：主进程内存 ring buffer（2000 条上限）+ 按日落盘 `logs/creatoros-YYYYMMDD.log`（5MB 滚动 `.old`，7 天自动清理）。级别阈值默认 info，`LOG_LEVEL=debug` 环境变量可放开 debug 级。API 侧同支持 `GET /api/logs?level=&module=&search=`。
 
-### 4.8 Settings ⚙ 设置（v0.3 改造为引擎配置）
+### 4.9 Settings ⚙ 设置（v0.3 改造为引擎配置）
 
 内置 Agent 引擎（Claude Code）的页面化配置，**保存即热生效，无需重启**——下一次 run（聊天或 cron）即用新配置：
 

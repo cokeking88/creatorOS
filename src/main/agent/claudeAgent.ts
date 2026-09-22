@@ -65,11 +65,52 @@ export class ClaudeAgentService {
   private log = logger.child('agent');
   private registry = new RunRegistry();
   private mcpServer: ReturnType<typeof createSdkMcpServer> | null = null;
+  /** Current account directory: the agent's cwd AND the only area its file tools may touch. */
+  private accountDir: string | null = null;
   readonly bus: StepBus;
 
   constructor(private kernel: BrowserKernel, bus?: StepBus) {
     this.bus = bus ?? createStepBus();
   }
+
+  /** Point the agent at an account directory (fence root). Null = generic workspace, file tools stay blocked. */
+  setAccountDir(dir: string | null) {
+    this.accountDir = dir;
+    this.log.info('Agent account dir set', { dir: dir ?? '(none — file tools blocked)' });
+  }
+
+  /**
+   * PreToolUse fence: file tools may only touch paths inside the account dir
+   * (realpath-checked). Bash is blocked outright (cannot be reliably fenced).
+   * Hook deny applies even under bypassPermissions (SDK hooks.md).
+   */
+  private accountFence = async (input: unknown): Promise<Record<string, unknown>> => {
+    const i = input as { tool_name?: string; tool_input?: Record<string, unknown> };
+    const tool = i?.tool_name ?? '';
+    const ti = i?.tool_input ?? {};
+    const deny = (reason: string) => ({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: reason,
+      },
+    });
+    if (tool === 'Bash') {
+      return deny('Bash is disabled in CreatorOS: browser and file tools cover the supported surface, and shell commands cannot be reliably fenced.');
+    }
+    const fileTools = ['Read', 'Write', 'Edit', 'NotebookEdit', 'Glob', 'Grep'];
+    if (!fileTools.includes(tool)) return {}; // browser MCP tools are whitelisted separately
+    if (!this.accountDir) {
+      return deny('No account directory is active. Open the Files page and select an account first.');
+    }
+    const target = ti.file_path ?? ti.notebook_path ?? ti.path ?? ti.folder ?? null;
+    if (typeof target !== 'string') return {}; // e.g. Grep with cwd only — cwd is already fenced
+    const { isInsideRoot } = await import('../services/accountFiles.js');
+    if (!isInsideRoot(this.accountDir, target)) {
+      return deny(`Path is outside the account directory fence: ${target}`);
+    }
+    return {};
+  };
 
   private buildOptions(cfg: AgentEngineConfig, abort: AbortController) {
     if (!this.mcpServer) {
@@ -77,7 +118,7 @@ export class ClaudeAgentService {
     }
     // The CLI subprocess chdirs to cwd at startup; a missing directory kills the
     // launch and the SDK reports it as "binary exists but failed to launch".
-    const workspace = join(app.getPath('userData'), 'agent-workspace');
+    const workspace = this.accountDir ?? join(app.getPath('userData'), 'agent-workspace');
     mkdirSync(workspace, { recursive: true });
     const env: Record<string, string | undefined> = {
       ...process.env,
@@ -94,11 +135,23 @@ export class ClaudeAgentService {
       env,
       systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: SYSTEM_APPEND },
       mcpServers: { 'creatoros-browser': this.mcpServer },
-      allowedTools: ['mcp__creatoros-browser__*'],
+      // File tools (Read/Write/Edit/Glob/Grep) are intentionally enabled so the
+      // agent manages account files — fenced to the account dir by the PreToolUse
+      // hook (allowedTools cannot constrain bypassPermissions; see SECURITY.md).
+      allowedTools: ['mcp__creatoros-browser__*', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
+      disallowedTools: ['Bash', 'NotebookEdit'],
+      hooks: {
+        PreToolUse: [{
+          matcher: 'Read|Write|Edit|NotebookEdit|Glob|Grep|Bash',
+          hooks: [this.accountFence],
+        }],
+      },
+      // Unattended runs (cron) must not run away; the same bounds apply to chat.
+      maxTurns: 40,
+      maxBudgetUsd: 0.5,
       includePartialMessages: true,
-      // All MCP tools are browser-only (allowedTools whitelist) with no file/bash
-      // surface, so headless runs cannot block on a permission prompt.
-      // If the tool surface ever widens, replace with canUseTool-based approval.
+      // bypassPermissions is safe ONLY because every non-browser tool is fenced by
+      // the PreToolUse hook above (hook deny applies even in bypass mode).
       permissionMode: 'bypassPermissions' as const,
       allowDangerouslySkipPermissions: true,
       settingSources: [] as never[],
