@@ -1,4 +1,5 @@
 import { app } from 'electron';
+import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { nanoid } from 'nanoid';
 import { query, createSdkMcpServer } from '@anthropic-ai/claude-agent-sdk';
@@ -74,6 +75,10 @@ export class ClaudeAgentService {
     if (!this.mcpServer) {
       this.mcpServer = createSdkMcpServer({ name: 'creatoros-browser', version: '0.2.0', tools: createBrowserTools(this.kernel) });
     }
+    // The CLI subprocess chdirs to cwd at startup; a missing directory kills the
+    // launch and the SDK reports it as "binary exists but failed to launch".
+    const workspace = join(app.getPath('userData'), 'agent-workspace');
+    mkdirSync(workspace, { recursive: true });
     const env: Record<string, string | undefined> = {
       ...process.env,
       CLAUDE_CONFIG_DIR: join(app.getPath('userData'), 'claude-agent'),
@@ -85,7 +90,7 @@ export class ClaudeAgentService {
     if (cfg.model) env.ANTHROPIC_MODEL = cfg.model;
     return {
       abortController: abort,
-      cwd: join(app.getPath('userData'), 'agent-workspace'),
+      cwd: workspace,
       env,
       systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append: SYSTEM_APPEND },
       mcpServers: { 'creatoros-browser': this.mcpServer },

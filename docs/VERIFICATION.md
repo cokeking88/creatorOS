@@ -1,5 +1,15 @@
 # Verification status
 
+## 2026-09-22 v0.3.2 — fix: SDK "binary failed to launch" (misleading error)
+
+**Symptom**: every real (non-fake) agent run in the app failed with `Claude Code native binary ... exists but failed to launch ... libc / musl` — even though the binary is healthy (runs standalone, in node, and in Electron without options).
+
+**Root cause**: `buildOptions()` passed `cwd: userData/agent-workspace` — a directory nothing ever created. The CLI subprocess fails its startup chdir, never completes the readiness handshake, and the SDK classifies every startup-phase death under this one misleading "binary/libc" error. Reproduced by bisection in the Electron main process: `cwd` → nonexistent dir = fail; `cwd` → pre-created dir = success; without `cwd` = success. Single-variable isolation confirmed cwd as the necessary and sufficient condition.
+
+**Fix**: `mkdirSync(workspace, { recursive: true })` before assembling options (`src/main/agent/claudeAgent.ts` buildOptions).
+
+**End-to-end verification in the real running app**: gateway-created `agent.run` job → `job_runs.status=success`, output `{"text":"ok","steps":3,"sessionId":"<real uuid>"}` — the first genuinely working agent run through the app (not fake mode). Note: e2e fake mode never exercised this path (fake transport skips buildOptions), which is why 28 green tests coexisted with a 100%-reproducible runtime failure; documented as a gate blind spot.
+
 ## 2026-09-22 v0.3 final release — docs sync, gate green
 
 - Scope: agent kernel replaced by the Claude Code Agent SDK + live step streaming (spec `docs/specs/agent-claude-code.md`). Full gate re-run for the release commit: `npm run gate` exit 0 (vitest 6 files / 43 tests, playwright 27 tests in 6 spec files — launch/logs/browser kept, agent/settings rewritten, cron-agent added; all offline via `CREATOROS_FAKE_CLAUDE=1`).
