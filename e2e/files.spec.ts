@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { closeApp, gw, launchApp, waitForGateway, type Launched } from './helpers.js';
+import { closeApp, launchApp, waitForGateway, type Launched } from './helpers.js';
 
 let app: Launched;
 
