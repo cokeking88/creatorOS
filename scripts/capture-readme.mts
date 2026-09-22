@@ -78,21 +78,21 @@ await win.waitForTimeout(2500);
 await appShot('browser');
 await pageShot('browser-embedded');
 
-await gotoPage('Dashboard');
+await gotoPage('工作台');
 await domShot('dashboard');
-await gotoPage('Accounts');
+await gotoPage('账号');
 await domShot('accounts');
-await gotoPage('Content');
+await gotoPage('内容');
 await domShot('content');
-await gotoPage('Automation');
+await gotoPage('自动化');
 await domShot('automation');
-await gotoPage('Logs');
+await gotoPage('日志');
 await domShot('logs');
-await gotoPage('Settings');
+await gotoPage('设置');
 await domShot('settings');
 
 // Agent panel with a streamed run (chat on the Browser page; embedded page visible in chrome).
-await gotoPage('Browser');
+await gotoPage('浏览器');
 await win.locator('.composer textarea').fill('打开 example.com 并汇报页面内容');
 await win.locator('.composer button:has-text("发送")').click();
 await win.waitForTimeout(180);
@@ -100,6 +100,6 @@ await appShot('agent-steps');
 await win.waitForTimeout(600);
 await appShot('agent-done');
 
-await app.close();
-console.log('done');
+// app.close() can hang on darwin after exercising the app (known e2e lesson);
+// all shots are written by this point — exit directly.
 process.exit(0);

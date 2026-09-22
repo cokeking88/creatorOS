@@ -1,5 +1,8 @@
 import React,{useEffect,useRef,useState} from 'react';
 import type { AgentStep, AgentRunResult } from '../../shared/types';
+import { fmtCost, fmtDur, toolLabel } from '../../shared/format';
+import { Empty } from './Empty';
+import { IcSpinner, IcOk, IcFail, IcWarn, IcAutomation } from './icons';
 
 /**
  * Single source of truth for one agent run (arch spec §2.4).
@@ -38,27 +41,27 @@ function applyTextStep(streamText:RunItem['streamText'],step:AgentStep):RunItem[
 function StepLine({step,expanded,onToggle}:{step:AgentStep;expanded:boolean;onToggle:()=>void}) {
   const time=new Date(step.time).toLocaleTimeString();
   if(step.type==='tool_start') return <div className={`step ${expanded?'open':''}`} onClick={onToggle}>
-    <span className="step-icon spin">⚙</span>
-    <span className="step-label">{step.tool}</span>
+    <span className="step-icon spin"><IcSpinner/></span>
+    <span className="step-label">{toolLabel(step.tool)}</span>
     {step.inputText && <span className="step-hint">{expanded?'收起':'展开'}</span>}
     <span className="step-time">{time}</span>
-    {expanded && step.inputText && <pre className="step-json">{step.inputText}</pre>}
+    {expanded && step.inputText && <pre className="step-json">{step.tool&&<><code>{step.tool}</code>{'\n'}</>}{step.inputText}</pre>}
   </div>;
   if(step.type==='tool_result') return <div className={`step result ${step.ok?'ok':'fail'}`} onClick={onToggle}>
-    <span className="step-icon">{step.ok?'✓':'✗'}</span>
-    <span className="step-label">{step.tool}</span>
+    <span className="step-icon">{step.ok?<IcOk/>:<IcFail/>}</span>
+    <span className="step-label">{toolLabel(step.tool)}</span>
     {step.detail && <span className="step-hint">{expanded?'收起':'详情'}</span>}
-    <span className="step-time">{typeof step.durationMs==='number'?`${Math.round(step.durationMs/100)/10}s`:time}</span>
-    {expanded && step.detail && <pre className="step-json">{step.detail}</pre>}
+    <span className="step-time">{typeof step.durationMs==='number'?fmtDur(step.durationMs):time}</span>
+    {expanded && step.detail && <pre className="step-json">{step.tool&&<><code>{step.tool}</code>{'\n'}</>}{step.detail}</pre>}
   </div>;
   if(step.type==='done'||step.type==='error') { let meta:Record<string,unknown>={}; try { meta=step.detail?JSON.parse(step.detail):{}; } catch { /* non-json detail */ }
     const interrupted=meta.subtype==='interrupted';
     return <div className={`step ${step.type}`} onClick={onToggle}>
-      <span className="step-icon">{step.type==='done'?'●':'⚠'}</span>
+      <span className="step-icon">{step.type==='done'?'●':<IcWarn/>}</span>
       <span className="step-label">{step.type==='done'?'完成':interrupted?'已中断':'出错'}</span>
       {step.type==='error' && step.detail && <span className="step-hint">{expanded?'收起':'详情'}</span>}
-      {typeof meta.cost==='number'&&<span className="step-time">${meta.cost.toFixed(4)}</span>}
-      {typeof meta.durationMs==='number'&&<span className="step-time">{Math.round(meta.durationMs/100)/10}s</span>}
+      {typeof meta.cost==='number'&&<span className="step-time">{fmtCost(meta.cost)}</span>}
+      {typeof meta.durationMs==='number'&&<span className="step-time">{fmtDur(meta.durationMs)}</span>}
       {expanded && step.type==='error' && step.detail && <pre className="step-json">{step.detail}</pre>}
     </div>; }
   return null;
@@ -130,10 +133,11 @@ export function AgentPanel(){
   }
 
   return <aside className="agent">
-    <header><b>Agent</b><span>{busy?'运行中…':'Claude Code'}</span></header>
-    {cronRun&&<div className="cron-banner">⏱ Cron job {cronRun.source.slice('cron:'.length)} 运行中…</div>}
+    <header><b>Agent</b><span className={busy?'running':''}>{busy?'运行中…':'Claude Code'}</span></header>
+    {cronRun&&<div className="cron-banner"><span>定时任务「{cronRun.source.slice('cron:'.length)}」运行中…</span><button className="btn-link" onClick={()=>void window.creatorOS.agent.stop(cronRun.runId)}>停止</button></div>}
     <div className="chat" ref={chatRef}>
-      {items.length===0&&<p className="muted">内置 Agent 现由 Claude Code 驱动。执行步骤会在这里实时展示。</p>}
+      {items.length===0&&<Empty icon={<IcAutomation/>} title="Agent 待命中" hint="内置 Agent 由 Claude Code 驱动，能操作浏览器、读写文件"
+        suggestions={[{label:'检查各账号登录态',onPick:()=>setMsg('检查各账号登录态')},{label:'打开小红书创作中心并截图',onPick:()=>setMsg('打开小红书创作中心并截图')},{label:'列出所有定时任务',onPick:()=>setMsg('列出所有定时任务')}]}/>}
       {items.map((it,i)=>{
         if(it.kind==='user')return <div key={i} className="bubble user">{it.text}</div>;
         const running=it.status==='running';
@@ -152,8 +156,8 @@ export function AgentPanel(){
       <div className="composer-actions">
         <span className="muted small">{sessionId?'会话已续接':'新会话'}</span>
         {busy
-          ? <button className="stop" onClick={stop}>■ 停止</button>
-          : <button onClick={send}>发送</button>}
+          ? <button className="btn-danger" onClick={stop}>■ 停止</button>
+          : <button className="btn-primary" onClick={send}>发送</button>}
       </div>
     </div>
   </aside>;

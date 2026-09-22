@@ -1,4 +1,4 @@
-import type { AppState, BrowserSnapshot, LogEntry, LogFilter, AgentEngineConfig, AgentStep, AgentRunResult } from '../shared/types';
+import type { AppState, BrowserSnapshot, LogEntry, LogFilter, AgentEngineConfig, AgentStep, AgentRunResult, AgentRunsOverview } from '../shared/types';
 declare global { interface Window { creatorOS: {
   state:()=>Promise<AppState>;
   account:{create:(x:any)=>Promise<any>};
@@ -6,8 +6,8 @@ declare global { interface Window { creatorOS: {
   tab:{create:(p?:string,u?:string)=>Promise<string>;activate:(id:string)=>Promise<void>;close:(id:string)=>Promise<void>};
   browser:{navigate:(u:string)=>Promise<void>;back:()=>Promise<void>;forward:()=>Promise<void>;reload:()=>Promise<void>;layout:(b:{x:number;y:number;width:number;height:number},v:boolean)=>Promise<void>;snapshot:()=>Promise<BrowserSnapshot>};
   content:{list:()=>Promise<any[]>;create:(x:any)=>Promise<any>;update:(id:string,x:any)=>Promise<void>};
-  jobs:{list:()=>Promise<any[]>;create:(x:any)=>Promise<any>;toggle:(id:string,e:boolean)=>Promise<void>};
-  agent:{run:(prompt:string,resumeSessionId?:string)=>Promise<{runId:string}>;stop:(runId:string)=>Promise<boolean>};
+  jobs:{list:()=>Promise<any[]>;create:(x:any)=>Promise<any>;toggle:(id:string,e:boolean)=>Promise<void>;delete:(id:string)=>Promise<void>};
+  agent:{run:(prompt:string,resumeSessionId?:string)=>Promise<{runId:string}>;stop:(runId:string)=>Promise<boolean>;runsList:(limit?:number)=>Promise<AgentRunsOverview>};
   logs:{list:(f?:LogFilter)=>Promise<{entries:LogEntry[];modules:string[]}>;clear:()=>Promise<void>};
   files:{list:(accountId:string)=>Promise<any[]>;read:(accountId:string,rel:string)=>Promise<{content:string;size:number;mtime:number}>;write:(accountId:string,rel:string,content:string)=>Promise<{mtime:number}>;mkdir:(accountId:string,rel:string)=>Promise<{ok:boolean}>;rename:(accountId:string,from:string,to:string)=>Promise<{ok:boolean}>};
   onFilesChanged:(cb:(p:{accountId:string;relPath:string|null})=>void)=>()=>void;

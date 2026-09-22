@@ -28,18 +28,27 @@ export function SettingsPage() {
     } finally { setTesting(false); }
   }
 
-  return <div className="page"><h1>Settings</h1>
+  return <div className="page"><h1>设置</h1>
     <p className="muted">内置 Agent 引擎为 Claude Code（Agent SDK 子进程）。以下为 Anthropic 协议接入配置，保存即热生效。</p>
     <div className="content-grid">
       <section className="panel">
         <h2>Agent Engine · Claude Code</h2>
-        <input className="field" placeholder="Base URL（默认 https://api.anthropic.com；公司网关填这里）" value={cfg.baseUrl ?? ''} onChange={(e) => set({ baseUrl: e.target.value })} />
-        <input className="field" type="password" placeholder="Auth Token（→ ANTHROPIC_AUTH_TOKEN，Bearer）" value={cfg.authToken ?? ''} onChange={(e) => set({ authToken: e.target.value })} />
-        <input className="field" type="password" placeholder="API Key（→ ANTHROPIC_API_KEY，x-api-key；与 Token 二选一，Token 优先）" value={cfg.apiKey ?? ''} onChange={(e) => set({ apiKey: e.target.value })} />
-        <input className="field" placeholder="Model（如 claude-sonnet-4-5）" value={cfg.model ?? ''} onChange={(e) => set({ model: e.target.value })} />
+        <input className="field" placeholder="https://api.anthropic.com（默认）" value={cfg.baseUrl ?? ''} onChange={(e) => set({ baseUrl: e.target.value })} />
+        <p className="help">公司网关地址填这里；留空走官方</p>
+        <input className="field" type="password" placeholder="Auth Token（可选）" value={cfg.authToken ?? ''} onChange={(e) => set({ authToken: e.target.value })} />
+        <p className="help">→ ANTHROPIC_AUTH_TOKEN（Bearer）；与 API Key 二选一，Token 优先</p>
+        <input className="field" type="password" placeholder="API Key（可选）" value={cfg.apiKey ?? ''} onChange={(e) => set({ apiKey: e.target.value })} />
+        <p className="help">→ ANTHROPIC_API_KEY（x-api-key）；与 Token 二选一，Token 优先</p>
+        <input className="field" list="model-list" placeholder="如 claude-sonnet-4-5" value={cfg.model ?? ''} onChange={(e) => set({ model: e.target.value })} />
+        <datalist id="model-list">
+          <option value="claude-sonnet-4-5" />
+          <option value="claude-opus-4-6" />
+          <option value="claude-haiku-4-5" />
+        </datalist>
+        <p className="help">留空用默认模型</p>
         <div className="row">
-          <button className="primary" disabled={!loaded} onClick={save}>Save</button>
-          <button disabled={!loaded || testing} onClick={test}>{testing ? 'Testing…' : 'Test connection'}</button>
+          <button className="btn-primary" disabled={!loaded} onClick={save}>保存</button>
+          <button className="btn-ghost" disabled={!loaded || testing} onClick={test}>{testing ? '测试中…' : '测试连接'}</button>
         </div>
         {saved && <p className="ok-msg">{saved}</p>}
         {testResult && <p className={testResult.ok ? 'ok-msg' : 'err-msg'}>

@@ -1,5 +1,16 @@
 # Verification status
 
+## 2026-09-22 v0.4 — full UI/UX redesign (R0→R5 workflow)
+
+- Flow re-run per the mandated workflow: R0 audit (47 findings, **B1 retracted after a real probe** — fake-mode screenshots showed a stale address bar, but gateway-driven navigation updates it correctly; the audit doc records the retraction) → R1 spec `docs/specs/ui-redesign.md` (799 lines: tokens/contrast table/component specs/per-page/AC) → R2 arch section (§7, 117 lines: two new IPC contracts corrected against real schema/repo/scheduler semantics, node-cron AND-vs-OR semantics verified against its dist source) → R3 two-batch implementation → R4 dual-layer report → R5 docs.
+- Design system: 3-layer dark backgrounds (was 6 near-identical grays), `color-scheme:dark` (native controls no longer UA-white), 5-step type scale, 8px spacing grid, 4-class button system (all text/background pairs recomputed ≥4.5:1; primary hover avoids the brightness() trap that would break white-on-accent contrast), hand-drawn SVG icon set (zero new deps), unified Empty component, Chinese-first copy with a terminology table.
+- New capabilities surfaced by the redesign: `agent:runs.list` IPC + 工作台 dashboard with real agent_runs/job_runs lists; `job:delete` IPC + two-step delete with explicit job_runs cascade; cron template dropdown + next-run preview (`shared/cronNext.ts`, parse/preview split so the UI can distinguish "unsupported expression" from "no fire within 366 days"); Chinese tool labels + `<$0.01`/`<0.1s` formatting (`shared/format.ts`).
+- vitest **10 files / 92 tests** (+31: cron boundaries — month-end, leap-year, never-fires, malformed, node-cron AND semantics, `N/step` rejection; fmt edges; toolLabel prefix stripping).
+- playwright **9 specs / 39 tests** (was 33): +dashboard.spec (empty states, formatted run rows, runsList IPC contract shape cross-checked against SQLite), +automation-delete.spec (two-step confirm, jobs+job_runs cascade verified on disk), AC-B2 (no stuck loading dot), AC-F3 (tree follows container); 6 copy assertions updated for the Chinese UI; launch.spec overflow loop made density-adaptive.
+- Visual acceptance: 15 screenshots `docs/screenshots/redesign/` via `scripts/capture-ui-redesign.mts` (fake mode, offline). 4 non-blocking polish items recorded in the dev report.
+- Capture-script lessons: arborist's row wrapper intercepts coordinate-based Playwright clicks (drive row onClicks via evaluate); `app.close()` darwin hang applies to capture scripts too (exit directly after shots).
+- Gate: `npm run gate` exit 0 (ESLint 0 errors/40 legacy warns, 4×typecheck, build, vitest 92, e2e 39). No new dependencies.
+
 ## 2026-09-22 v0.3.3 — account files + agent fence
 
 - Feature spec: docs/specs/account-files.md (R0+R1+R2 combined; open-source selection researched: CodeMirror 6 / react-arborist / chokidar 5 / SDK cwd+hook fence, sources in spec).

@@ -53,6 +53,23 @@ test('tabs list reflects the fixture page', async () => {
   expect(tab.title).toBe('CreatorOS Fixture Page');
 });
 
+test('AC-B2: after a completed navigate every tab reports loading:false (no stuck dot)', async () => {
+  // The fixture page is already loaded by the earlier test in this spec; poll the
+  // renderer state so the assertion is race-free against did-stop-loading.
+  const settled = await app.window.evaluate(async () => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const deadline = Date.now() + 10_000;
+    for (;;) {
+      const state = await window.creatorOS.state();
+      if (state.tabs.length > 0 && state.tabs.every((t: { loading: boolean }) => !t.loading)) return state.tabs;
+      if (Date.now() > deadline) return state.tabs;
+      await sleep(200);
+    }
+  });
+  expect(settled.length).toBeGreaterThan(0);
+  for (const t of settled) expect(t.loading).toBe(false);
+});
+
 test('embedded session presents a standard Chrome UA (hygiene, not spoofing)', async () => {
   // AC2 of docs/specs/ua-standardization.md: no Electron/app tokens leak into
   // pages browsed inside the embedded browser, and the version is the REAL

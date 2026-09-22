@@ -31,7 +31,7 @@ export class TabManager {
   }
 
   private register(profileId: string, view: WebContentsView, url: string): ManagedTab {
-    const tab: ManagedTab = { id: nanoid(), profileId, title: 'New Tab', url, active: false, loading: true, view };
+    const tab: ManagedTab = { id: nanoid(), profileId, title: '新标签页', url, active: false, loading: true, view };
     this.tabs.set(tab.id, tab);
     const ses = this.profiles.getSession(profileId);
 

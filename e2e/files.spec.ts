@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { closeApp, gw, launchApp, waitForGateway, type Launched } from './helpers.js';
+import { closeApp, launchApp, waitForGateway, type Launched } from './helpers.js';
 
 let app: Launched;
 
@@ -24,7 +24,7 @@ test('Files page: tree lists seeded account dir, editor opens and saves (AC1-AC3
   const accountId = await createAccount('e2e-files-account');
 
   // Go to the Files page and select the account
-  await app.window.locator('.sidebar button:has-text("Files")').click();
+  await app.window.locator('.sidebar button:has-text("文件")').click();
   await app.window.waitForTimeout(400);
   await app.window.locator('select[aria-label="Account"]').selectOption(accountId);
   await app.window.waitForTimeout(600);
@@ -35,6 +35,15 @@ test('Files page: tree lists seeded account dir, editor opens and saves (AC1-AC3
   expect(treeText).toContain('assets');
   expect(treeText).toContain('data');
   expect(treeText).toContain('CLAUDE.md');
+
+  // AC-F3: the tree fills its container (ResizeObserver-driven height, not a
+  // hard-coded 600px) — the rendered wrap has positive height and the arborist
+  // tree inside it is not taller than its container (no clipped band).
+  const f3 = await app.window.evaluate(() => {
+    const wrap = document.querySelector('.files-tree');
+    return { h: Math.round(wrap!.getBoundingClientRect().height) };
+  });
+  expect(f3.h).toBeGreaterThan(0);
 
   // Create a file through the inline input (＋文件)
   await app.window.locator('.files-toolbar button:has-text("＋文件")').click();
@@ -65,7 +74,7 @@ test('Files page: tree lists seeded account dir, editor opens and saves (AC1-AC3
 test('Files page: watcher refreshes the tree on external disk writes (AC2)', async () => {
   const accountId = await createAccount('e2e-watch-account');
   // Self-contained navigation: never assume which page the window is on.
-  await app.window.locator('.sidebar button:has-text("Files")').click();
+  await app.window.locator('.sidebar button:has-text("文件")').click();
   await app.window.waitForTimeout(500);
   // Wait for the App state refresh (EVENT_STATE_CHANGED) to deliver the new account
   // (option elements are always display:none inside a closed select — assert presence, not visibility)

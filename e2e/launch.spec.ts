@@ -62,11 +62,21 @@ test('＋P inline input creates and activates a new profile (window.prompt is de
 });
 
 test('agent chat area scrolls instead of blowing out the panel', async () => {
-  // Grow real content first (three fake-mode runs stream steps + bubbles), then
-  // assert the layout holds: chat scrolls, composer pinned inside the viewport.
-  for (let i = 0; i < 3; i++) {
-    await app.window.locator('.composer textarea').fill(`第${i}轮：打开 example.com 然后详细汇报页面内容，多说几句`);
+  // Grow real content (fake-mode runs stream steps + bubbles) until the chat
+  // actually overflows, then assert the layout holds: chat scrolls, composer
+  // pinned inside the viewport. R3's Chinese tool labels (§2.7) made each run
+  // render more compactly, so a fixed three rounds no longer guarantee
+  // overflow — the loop keeps the test independent of content density.
+  let rounds = 0;
+  for (;;) {
+    const overflowed = await app.window.evaluate<boolean>(`(() => {
+      const chat = document.querySelector('.chat');
+      return chat.scrollHeight > chat.clientHeight;
+    })()`);
+    if (overflowed || rounds >= 6) break;
+    await app.window.locator('.composer textarea').fill(`第${rounds}轮：打开 example.com 然后详细汇报页面内容，多说几句`);
     await app.window.locator('.composer button:has-text("发送")').click();
+    rounds++;
     await app.window.waitForTimeout(1200);
   }
   await app.window.waitForTimeout(900);

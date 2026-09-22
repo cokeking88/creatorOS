@@ -4,6 +4,8 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { Tree, type TreeApi } from 'react-arborist';
 import type { AppState } from '../../shared/types';
+import { Empty } from '../components/Empty';
+import { IcFiles, IcFile, IcChevronRight, IcChevronDown } from '../components/icons';
 
 type FileNode = { name: string; path: string; kind: 'file' | 'dir'; children?: FileNode[] };
 
@@ -27,9 +29,18 @@ export function FilesPage({ state }: { state: AppState | null }) {
   const [conflict, setConflict] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const treeRef = useRef<TreeApi<FileNode> | null>(null);
+  const treeWrapRef = useRef<HTMLDivElement>(null);
+  const [treeH, setTreeH] = useState(0);
 
   const accounts = state?.accounts ?? [];
   const activeAccount = accountId ?? accounts[0]?.id ?? null;
+
+  // F3: the tree height follows its container instead of a hard-coded 600px.
+  useEffect(() => {
+    const el = treeWrapRef.current; if (!el) return;
+    const ro = new ResizeObserver(() => setTreeH(Math.max(100, el.clientHeight - 4)));
+    ro.observe(el); return () => ro.disconnect();
+  }, []);
 
   const refreshTree = useCallback(async (id: string | null) => {
     if (!id) return;
@@ -102,33 +113,35 @@ export function FilesPage({ state }: { state: AppState | null }) {
   const cmValue = content;
 
   if (!accounts.length) {
-    return <div className="page"><h1>Files</h1><p className="muted">还没有运营账号。先到 <b>Accounts</b> 页创建账号，每个账号会自动拥有一个专属目录（drafts / assets / data）。</p></div>;
+    return <div className="page"><h1>文件</h1><p className="muted">还没有运营账号。先到「账号」页创建账号，每个账号会自动拥有一个专属目录（drafts / assets / data）。</p></div>;
   }
   return <div className="page files-page">
-    <h1>Files</h1>
+    <h1>文件</h1>
     <div className="files-toolbar">
       <select className="field" aria-label="Account" value={activeAccount ?? ''} onChange={e => { setAccountId(e.target.value); setSelected(null); setContent(''); }}>
         {accounts.map(a => { const p = state?.platforms.find(pl => pl.id === a.platformId); return <option key={a.id} value={a.id}>{p?.name ?? ''} · {a.name}</option>; })}
       </select>
-      <button onClick={() => { setCreating({ hint: '新文件名（如 drafts/新草稿.md）' }); }}>＋文件</button>
-      <button onClick={() => { setCreating({ hint: '新目录名（如 drafts/topic）' }); }}>＋目录</button>
-      <button disabled={!selected} onClick={() => { if (selected) setCreating({ hint: `重命名 ${selected} 为` }); }}>重命名</button>
-      <span className="muted small" style={{ marginLeft: 'auto' }}>{account ? `目录：accounts/${activeAccount}` : ''}</span>
+      <button className="btn-ghost" onClick={() => { setCreating({ hint: '新文件名（如 drafts/新草稿.md）' }); }}>＋文件</button>
+      <button className="btn-ghost" onClick={() => { setCreating({ hint: '新目录名（如 drafts/topic）' }); }}>＋目录</button>
+      <button className="btn-ghost" disabled={!selected} onClick={() => { if (selected) setCreating({ hint: `重命名 ${selected} 为` }); }}>重命名</button>
+      <span className="muted small" style={{ marginLeft: 'auto' }} title={account ? `accounts/${activeAccount}` : ''}>{account ? `账号：${state?.platforms.find(pl => pl.id === account.platformId)?.name ?? ''} · ${account.name}` : ''}</span>
     </div>
     {creating && <div className="files-creating">
       <input className="field" autoFocus aria-label={creating.hint} placeholder={creating.hint} value={creatingValue}
         onChange={e => setCreatingValue(e.target.value)}
         onKeyDown={e => { if (e.key === 'Enter') void commitCreating(); if (e.key === 'Escape') setCreating(null); }}
-        onBlur={() => void commitCreating()} />
+        onBlur={() => setCreating(null)} />
     </div>}
     {error && <p className="err-msg">{error}</p>}
     <div className="files-grid">
-      <div className="files-tree">
+      <div className="files-tree" ref={treeWrapRef}>
         {treeData.length
-          ? <Tree<FileNode> ref={treeRef} data={treeData} openByDefault={false} idAccessor={(n) => n.path} width="100%" height={600} rowHeight={28} indent={16}
+          ? <Tree<FileNode> ref={treeRef} data={treeData} openByDefault={false} idAccessor={(n) => n.path} width="100%" height={treeH || 100} rowHeight={28} indent={16}
               renderRow={(props) => <div className={`files-row ${selected === props.node.data.path ? 'selected' : ''}`}
                    onClick={() => { if (props.node.data.kind === 'file') void openFile(props.node.data.path); else props.node.toggle(); }}>
-                <span className="files-icon">{props.node.data.kind === 'dir' ? (props.node.isOpen ? '▾' : '▸') : '📄'}</span>
+                {props.node.data.kind === 'dir'
+                  ? <span className="chev">{props.node.isOpen ? <IcChevronDown/> : <IcChevronRight/>}</span>
+                  : <span className="files-icon"><IcFile/></span>}
                 <span className="files-name">{props.node.data.name}</span>
               </div>} />
           : <p className="muted">空目录 — 用上方按钮创建第一个草稿，或让 Agent 直接在这里工作。</p>}
@@ -139,14 +152,14 @@ export function FilesPage({ state }: { state: AppState | null }) {
               <div className="files-editor-top">
                 <code>{selected}</code>
                 <SaveState dirty={dirty} saving={saving} conflict={conflict} />
-                {conflict && <button className="primary" onClick={() => { void openFile(selected); }}>重新加载磁盘版</button>}
-                {conflict && dirty && <button onClick={() => { void save(); }}>用我的覆盖</button>}
-                <button className="primary" disabled={!dirty || saving} onClick={() => { void save(); }}>保存</button>
+                {conflict && <button className="btn-primary" onClick={() => { void openFile(selected); }}>重新加载磁盘版</button>}
+                {conflict && dirty && <button className="btn-danger" onClick={() => { void save(); }}>用我的覆盖</button>}
+                <button className="btn-primary" disabled={!dirty || saving} onClick={() => { void save(); }}>保存</button>
               </div>
               <CodeMirror value={cmValue} height="100%" theme="dark" extensions={cmExtensions}
                 onChange={(v: string) => { setContent(v); setDirty(true); }} />
             </>
-          : <p className="muted">从左侧选择一个文件查看/编辑。CLAUDE.md 是给 Agent 的目录约定说明。</p>}
+          : <Empty icon={<IcFiles/>} title="选择左侧文件开始编辑" hint="CLAUDE.md 是给 Agent 的目录约定说明"/>}
       </div>
     </div>
   </div>;

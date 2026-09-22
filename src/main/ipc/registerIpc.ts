@@ -1,14 +1,17 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc.js';
-import type { AgentEngineConfig, LogFilter } from '../../shared/types.js';
+import type { AgentEngineConfig, AgentRunSummary, JobRunSummary, LogFilter } from '../../shared/types.js';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 import type { Scheduler } from '../scheduler/Scheduler.js';
 import { repo } from '../db/repository.js';
+import { rawSqlite } from '../db/index.js';
 import { logger } from '../services/logger.js';
 import { getAgentEngineConfig, setAgentEngineConfig } from '../services/settings.js';
 import { getClaudeAgent, type ClaudeAgentService } from '../agent/claudeAgent.js';
 import { nanoid } from 'nanoid';
 import { AccountFilesService, accountRoot, ensureAccountDir } from '../services/accountFiles.js';
+
+const jobsLog = logger.child('jobs');
 
 export function registerIpc(win: BrowserWindow, browser: BrowserKernel, scheduler: Scheduler, agent: ClaudeAgentService) {
   const state=()=>({platforms:repo.listPlatforms(),accounts:repo.listAccounts(),profiles:repo.listProfiles(),tabs:browser.tabs.list(),contents:repo.listContents(),jobs:repo.listJobs(),activeProfileId:browser.activeProfile,activeTabId:browser.activeTab});
@@ -31,6 +34,7 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
   ipcMain.handle(IPC.JOB_LIST,()=>repo.listJobs());
   ipcMain.handle(IPC.JOB_CREATE,(_e,input)=>{const x=repo.createJob(input);scheduler.reload();changed();return x;});
   ipcMain.handle(IPC.JOB_TOGGLE,(_e,id,enabled)=>{repo.toggleJob(id,enabled);scheduler.reload();changed();});
+  ipcMain.handle(IPC.JOB_DELETE,(_e,id: string)=>{repo.deleteJob(id);scheduler.reload();changed();jobsLog.info('Job deleted',{jobId:id});});
   ipcMain.handle(IPC.LOGS_LIST,(_e,filter:LogFilter)=>({entries:logger.query(filter ?? {}),modules:logger.modules()}));
   ipcMain.handle(IPC.LOGS_CLEAR,()=>{logger.clear();});
   ipcMain.handle(IPC.SETTINGS_GET,()=>getAgentEngineConfig());
@@ -47,6 +51,26 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
     return {runId};
   });
   ipcMain.handle(IPC.AGENT_STOP,(_e,runId: string)=>agent.stop(runId));
+  // Read-only dashboard projection (agent_runs + job_runs, §7.2). rawSqlite on
+  // purpose: no repo precedent for these two tables and Scheduler already uses
+  // raw prepare at this layer.
+  type AgentRunRow = { id:string; status:string; input_json:string; cost_usd:number|null; duration_ms:number|null; started_at:number; finished_at:number|null };
+  type JobRunRow = { id:string; job_id:string; job_name:string|null; status:string; started_at:number; finished_at:number|null; error:string|null };
+  ipcMain.handle(IPC.AGENT_RUNS_LIST,(_e,limit=10)=>{
+    const agentRuns=(rawSqlite().prepare(
+      `SELECT id,status,input_json,cost_usd,duration_ms,started_at,finished_at FROM agent_runs ORDER BY started_at DESC LIMIT ?`
+    ).all(limit) as AgentRunRow[]).map((r):AgentRunSummary=>{
+      // input_json is written by claudeAgent as {prompt, source}; a corrupted row
+      // must degrade, not take the whole dashboard down.
+      let prompt=''; let source='chat';
+      try { const input=JSON.parse(r.input_json) as {prompt?:unknown;source?:unknown}; if(typeof input.prompt==='string')prompt=input.prompt; if(typeof input.source==='string')source=input.source; } catch { /* corrupted input_json */ }
+      return { id:r.id,status:r.status,source,prompt,ok:r.status==='success',costUsd:r.cost_usd,durationMs:r.duration_ms,startedAt:r.started_at,finishedAt:r.finished_at };
+    });
+    const jobRuns=(rawSqlite().prepare(
+      `SELECT jr.id,jr.job_id,jr.status,jr.started_at,jr.finished_at,jr.error,j.name AS job_name FROM job_runs jr LEFT JOIN jobs j ON j.id=jr.job_id ORDER BY jr.started_at DESC LIMIT ?`
+    ).all(limit) as JobRunRow[]).map((r):JobRunSummary=>({ id:r.id,jobId:r.job_id,jobName:r.job_name??'(已删除)',status:r.status,startedAt:r.started_at,finishedAt:r.finished_at,error:r.error }));
+    return { agentRuns, jobRuns } satisfies { agentRuns:AgentRunSummary[]; jobRuns:JobRunSummary[] };
+  });
 
   // --- Account files (fenced to <userData>/accounts/<accountId>) ---
   const filesLog = logger.child('files');

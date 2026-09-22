@@ -80,7 +80,7 @@ test('Settings page UI saves config and Test connection shows the ok state', asy
       [...document.querySelectorAll<HTMLElement>(sel)].find((b) => b.textContent!.includes(text));
 
     // 1. Navigate to the Settings page via the sidebar, wait for React to mount it.
-    byText('.sidebar button', 'Settings')!.click();
+    byText('.sidebar button', '设置')!.click();
     let page: HTMLElement | null = null;
     for (let i = 0; i < 50 && !page; i++) { await sleep(50); page = document.querySelector('.page'); }
     const title = page!.querySelector('h1')!.textContent;
@@ -100,24 +100,24 @@ test('Settings page UI saves config and Test connection shows the ok state', asy
     setVal(inputs[3], 'claude-sonnet-4-5');
 
     // 3. Save → "已保存并立即生效" (AC5 hot-reload UI confirmation).
-    byText('.page button', 'Save')!.click();
+    byText('.page button', '保存')!.click();
     let savedMsg = '';
     for (let i = 0; i < 50 && !savedMsg; i++) { await sleep(50); savedMsg = document.querySelector('.ok-msg')?.textContent ?? ''; }
     const saved = savedMsg;
 
     // 4. Test connection → "✓ 引擎连通" (AC7 fake mode).
-    byText('.page button', 'Test connection')!.click();
+    byText('.page button', '测试连接')!.click();
     let testMsg = '';
     for (let i = 0; i < 100 && !testMsg; i++) { await sleep(50); testMsg = document.querySelector('.test-detail')?.closest('p')?.textContent ?? ''; }
     const tested = testMsg;
 
     // 5. Navigate back to the Browser page (the app's default state) so the
     // instance this spec leaves behind matches what other specs/app exits see.
-    byText('.sidebar button', 'Browser')!.click();
+    byText('.sidebar button', '浏览器')!.click();
     for (let i = 0; i < 50 && !document.querySelector('.page'); i++) await sleep(50);
     return { title, saved, tested };
   });
-  expect(ui.title).toBe('Settings');
+  expect(ui.title).toBe('设置');
   expect(ui.saved).toContain('已保存并立即生效');
   expect(ui.tested).toContain('✓ 引擎连通');
   expect(ui.tested).toContain('fake mode');
