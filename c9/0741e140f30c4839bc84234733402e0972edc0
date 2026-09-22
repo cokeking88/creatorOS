@@ -1,0 +1,21 @@
+README_CN.md
+  s_a5d1a373f7f2b8::t_92caa9b41b17a0 1-161
+README.md
+  s_a5d1a373f7f2b8::t_dc0f1f929b1686 3-4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "c90741e140f30c4839bc84234733402e0972edc0",
+  "prompts": {},
+  "sessions": {
+    "s_a5d1a373f7f2b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ba06520-6c0a-4f73-8c1a-1f1639e94bd3",
+        "model": "glm-5.3"
+      },
+      "human_author": "yangnq <yangnq@xiaopeng.com>"
+    }
+  }
+}
