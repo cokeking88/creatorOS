@@ -2,6 +2,29 @@
 
 ## 0.5.0（2026-09-23）— Agent 全能力 + 技能系统
 
+内置 Agent 从「只会开浏览器」升级为**能操作应用全部功能**，并新增应用级技能系统：
+
+### 技能系统
+- 新「技能」页：技能 = 名称 + 描述 + 指令模板（支持 {占位符}），手建或 Agent 生成（Agent 建的带徽标提示 review）
+- 三个运行入口同一执行路径：Agent 面板 chips（填入不发送）/ 技能页运行按钮 / **绑定定时任务**（引用 skillId，模板更新任务跟随，删技能任务显式失败并警示）
+- Dashboard 第 5 张统计卡；自动化页「写指令 / 选技能」二选一
+
+### Agent 全能力（新 creatoros-app MCP server，10 工具）
+- 定时任务：job_list / job_create（创建前复述 cron 语义）/ job_toggle / job_delete（高危，warn 日志门）
+- 内容：content_list / content_create / content_update；账号：account_list（只读）；技能：skill_list / skill_create
+- 围栏常量单源化（agentPolicy.ts）：白名单显式列举两个 server、PreToolUse matcher 扩展、系统提示词新增防注入约束（网页原文不得写进技能模板）
+
+### 收敛与安全
+- cron 校验统一取严口径（parseCron 子集），三口收敛到 Scheduler.createJob 单点——Agent/UI/Gateway 互认
+- job 创建三经路收敛到 Scheduler；外部 MCP 桥只进只读四件套（写/高危不进）
+- SECURITY.md：#9 重写为当前事实 + 新增 #13（工具面分级）
+
+### 工程与测试
+- vitest 149（+57）、playwright 52（+13，新 skills-page/skill-cron/gateway-quartet 三个 spec）
+- 零新增 npm 依赖；死代码清理（mcp/tools.ts、CSS 过渡残留）
+
+## 0.5.0（2026-09-23）— Agent 全能力 + 技能系统
+
 R0→R4 工作流（spec `docs/specs/agent-capabilities.md`，含 R2 §13.10 工具计数勘误 10 个）：
 
 ### Agent 工具面（creatoros-app MCP server）

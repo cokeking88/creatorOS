@@ -71,7 +71,7 @@ export function AutomationPage({state,refresh}:{state:AppState|null;refresh:()=>
             </>}
         {contentMissing && <p className="muted" style={{margin:'0 0 8px'}}>{useSkill?'请选择一个技能':'执行 Agent 任务需要填写指令'}</p>}
       </>}
-      <button className="btn-primary" disabled={contentMissing||cronInvalid} onClick={()=>void create()}>创建任务</button>
+      <button className="btn-primary" disabled={contentMissing||cronInvalid} title={contentMissing?(useSkill?'请选择一个技能':'执行 Agent 任务需要填写指令'):'无法预览该表达式：cron 无效'} onClick={()=>void create()}>创建任务</button>
       {createErr&&<p className="err-msg">{createErr}</p>}
     </section>
     <section className="panel"><h2>定时任务</h2>{state?.jobs.map(j=>{

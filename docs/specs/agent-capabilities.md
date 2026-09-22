@@ -1198,3 +1198,29 @@ AC-S5 断言组：合法 cron 通过且 reloads 递增；`'not a cron'`/6 段/�
 8. e2e 批次（skills-page/skill-cron/gateway-skills + cron-agent/dashboard 增补）+ SECURITY/MCP/DATABASE/CHANGELOG（AC-S10）。
 
 步骤 1–3 与 4–5 可并行（第 3 步 mock 已解耦 Scheduler 实体）；每步 `gate:fast` 可绿，e2e 在 6 后补。
+
+## 14. R5 全局走查记录（跨功能质量走查 + 修复，2026-09）
+
+R5 阶段对 A 能力全部功能做了一轮跨功能走查。修复清单（文件 + 一句话）：
+
+1. `src/renderer/styles/app.css` — `.card .sub`（Dashboard 统计卡副行）：13px/text-2 与主标签同宽同色显得拥挤，改为 12px/text-3 + 2px 上边距 + 超长省略号（单行 ellipsis），核销 v0.4 §四遗留 1。
+2. `src/renderer/styles/app.css` — `.logs-meta`（Logs 消息列 meta 块）：展开态超长 JSON 会把行高撑爆，补 `max-height:200px;overflow:auto`（与 `.step-json` 同设计语言），核销 v0.4 §四遗留 2。
+3. `src/renderer/styles/app.css` — `.empty-suggest`（Agent 面板空态 chips）：330px 面板下 32px 高、0 14px 内边距的 chips 横排偏宽，收窄为 26px 高、12px 字号、0 10px 内边距 + `nowrap`+`ellipsis`（超长技能名截断不折行），核销 v0.4 §四遗留 3。
+4. `src/renderer/styles/app.css` — `.agent header span.running`：运行中态此前只靠颜色区分，补 `font-weight:600`，核销 v0.4 §四遗留 4。
+5. `src/renderer/pages/AutomationPage.tsx` — 「创建任务」按钮 disabled 时补 `title` 提示（选技能未选/指令未填/cron 无效三个原因各自对应文案），用户悬停即知禁用原因；原有行内 hint 文案不动。核销 R3 批 1 注意 3。
+6. `src/renderer/pages/SkillsPage.tsx` — 绑定定时任务的「创建定时任务」按钮同上补 `title`（cron 无效时）。
+7. `src/renderer/styles/app.css` — 删除过渡期死规则 `.link-btn`（v0.4 §五遗留，grep 确认 JSX 无引用）与 `.primary`（`.btn-primary` 的旧别名，同样零引用）。e2e 全量 52 用例验证无断言依赖（settings.spec/files.spec 相关按钮断言均按文本定位，全绿）。
+
+走查确认、无需修改的项：
+
+- **A-2 「列出所有定时任务」chip 兑现**（R0 §10.5）：`job_list` 工具已上线并接入（`appToolDefs.ts` + `main.ts` 装配 + `tests/app-tools.test.ts` 覆盖），文案按 §12.6 决策保持不动，承诺已真实，无代码改动。
+- **重复代码**：`cronPreview`/`relTime`/`fmtUpdate`/`ConfirmButton` 抽取后旧副本 grep 确认已全部删除，各只有 shared/ 或 components/ 一份。
+- **Dashboard `runsList(10)` 性能**：SQL 只 SELECT 概要列（不含 `steps_json`/`output_json` 胖列），LIMIT 10，挂载单次取数、无事件订阅循环，不会因 skill-cron e2e 后 state 变大拖慢首屏。
+- **appTools `out()` 截断**：`MAX_TOOL_RESULT_CHARS=18_000` 定义于 browserTools.ts 并被 appTools.ts 单源复用（§13.2「无第二副本」成立），与 browser 工具一致。
+- **lint 存量 42 warnings**：本轮触碰的文件（app.css/AutomationPage/SkillsPage/AgentPanel/Empty/Dashboard/LogsPage）零 warning；42 条全部位于 gateway/stepTranslator/claudeAgent/preload/global.d.ts 等本轮范围外文件，按纪律不动，留待后续批次。
+
+走查发现、登记未修的大问题（留给 R5 发布后处理）：
+
+1. **`Gateway.ts` 15 处 `any`（lint 大头）**：`req.params`/`req.query`/`req.body` 处均为 `(req as any)` 直取，Fastify 原生类型可收敛为 `FastifyRequest` 泛型/`zod` 校验，建议与「gateway 校验收敛到单一 zod schema」一起做，避免二次改动。
+2. **`stepTranslator.ts` 6 处 `any` + `claudeAgent.ts` 3 处 `any`**：SDK 事件类型收敛需要 SDK 侧类型定义完善，建议升级 `@anthropic-ai/claude-agent-sdk` 版本时顺带处理。
+3. **e2e 固定 `sleep(50)` 竞态容忍**：skill-cron.spec 三处、automation-delete/spec 两处在「点击→断言 armed 态」之间用固定 50ms 而非条件等待（React 状态更新通常 <16ms，实际余量足够）；若未来 CI 出现 flaky，优先把这些点改成条件轮询。ConfirmButton 3s 自动回臂窗口内第二点击（automation-delete:129）依赖 50ms < 3000ms，安全余量 60 倍，不构成风险。

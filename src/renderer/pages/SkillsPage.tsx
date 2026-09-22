@@ -106,7 +106,7 @@ export function SkillsPage({state,refresh}:{state:AppState|null;refresh:()=>void
               ? <p className="muted cron-preview">{bindPreview}</p>
               : parseCron(bindCron) ? <p className="muted cron-preview">366 天内不会触发</p> : <p className="muted cron-preview">无法预览该表达式</p>}
             {s.origin==='agent'&&<p className="help">该技能由 Agent 生成，绑定定时任务前请先确认模板内容</p>}
-            <button className="btn-primary" disabled={bindInvalid} onClick={()=>void createBindJob(s)}>创建定时任务</button>
+            <button className="btn-primary" disabled={bindInvalid} title={bindInvalid?'无法预览该表达式：cron 无效':undefined} onClick={()=>void createBindJob(s)}>创建定时任务</button>
           </div>}
         </article>;
       }):<Empty icon={<IcSkills/>} title="还没有技能" hint="对话里让 Agent 沉淀经验，或在这里写下第一个技能"/>}

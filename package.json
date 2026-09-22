@@ -1,6 +1,6 @@
 {
   "name": "creatoros",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "Local AI creator operations workspace with persistent embedded browser profiles.",
