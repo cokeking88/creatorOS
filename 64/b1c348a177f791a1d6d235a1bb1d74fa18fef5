@@ -1,0 +1,22 @@
+src/renderer/styles/app.css
+  s_a5d1a373f7f2b8::t_f56797c0022968 1
+e2e/launch.spec.ts
+  s_a5d1a373f7f2b8::t_794792a7c722b6 73-77,80-84,86-91
+  s_a5d1a373f7f2b8::t_abaf02f252b7a6 65-72,92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "64b1c348a177f791a1d6d235a1bb1d74fa18fef5",
+  "prompts": {},
+  "sessions": {
+    "s_a5d1a373f7f2b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ba06520-6c0a-4f73-8c1a-1f1639e94bd3",
+        "model": "glm-5.3"
+      },
+      "human_author": "yangnq <yangnq@xiaopeng.com>"
+    }
+  }
+}
