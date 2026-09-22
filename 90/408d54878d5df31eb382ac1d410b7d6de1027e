@@ -1,0 +1,40 @@
+src/main/browser/ua.ts
+  s_a5d1a373f7f2b8::t_bf40e6a73766da 40
+  s_a5d1a373f7f2b8::t_bafd3996ab7654 10-12,15-17,26,33,35-36,41-42,44,46-48
+  s_a5d1a373f7f2b8::t_cc1affce5dc8b4 1-9,13-14,18-25,27-32,34,37-39,43,45,49
+src/main/main.ts
+  s_a5d1a373f7f2b8::t_628d072e3622ae 6
+  s_a5d1a373f7f2b8::t_d7c61f84e651d2 37
+src/main/browser/ProfileManager.ts
+  s_a5d1a373f7f2b8::t_69da4a59e2cff9 5-11
+  s_a5d1a373f7f2b8::t_eb18c575cd2e95 3,20-22
+  s_a5d1a373f7f2b8::t_d5141a0f38c79f 4
+docs/specs/ua-standardization.md
+  s_a5d1a373f7f2b8::t_1f96b588f66d80 1-22
+tests/ua.test.ts
+  s_a5d1a373f7f2b8::t_34e15e99c5e159 2
+  s_a5d1a373f7f2b8::t_11a1ee4cfa75e6 33-34
+  s_a5d1a373f7f2b8::t_f8b3d902086a10 1,3-32,35-42,44,46-48,55-56
+  s_a5d1a373f7f2b8::t_8c46b91dbdcfe1 43,45,49-54
+docs/SECURITY.md
+  s_a5d1a373f7f2b8::t_355ba625675ab2 19
+e2e/browser.spec.ts
+  s_a5d1a373f7f2b8::t_bf679a9601dbbf 58-59,62-63
+  s_a5d1a373f7f2b8::t_02f24df4ad6147 55-57,60-61,64-68
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "90408d54878d5df31eb382ac1d410b7d6de1027e",
+  "prompts": {},
+  "sessions": {
+    "s_a5d1a373f7f2b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ba06520-6c0a-4f73-8c1a-1f1639e94bd3",
+        "model": "glm-5.3"
+      },
+      "human_author": "yangnq <yangnq@xiaopeng.com>"
+    }
+  }
+}
