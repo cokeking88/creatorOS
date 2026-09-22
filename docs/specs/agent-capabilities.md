@@ -644,3 +644,234 @@ Scheduler.run: payload.skillId ? repo.getSkill(id).promptTemplate │
 | D8 | 对话沉淀技能 | 不进 v1，R5 复评 | R0 关闭 |
 | D9 | 技能 enabled 列 | 不设（无调度语义） | R0 关闭 |
 | D10 | maxTurns/maxBudgetUsd | 维持 40/0.5，预算复合风险 R5 回顾 | R2 可调 |
+
+---
+
+## 12. R1 UI 设计
+
+> 输入：§6 需求清单 / §2.3 三入口 / §9.5 悬空提示 / §11 R1 输入清单。视觉基线 = ui-redesign v0.4 token（`app.css` 现行实态），**不引入第二套数值**；组件复用 Empty / 两段式删除 / `.content-item` 既有范式。本节 class 与文案为 R3 硬规范；新 e2e（R4 的 `skills-page.spec.ts` / `skill-cron.spec.ts`）只按 §12.6 清单写选择器；与 R0 §6 有出入处见 §12.7 勘误。
+
+### 12.1 技能页线框（五状态）
+
+**导航与图标**：`Sidebar.tsx:4` items 在 `automation` 后插 `['skills', IcSkills, '技能']`；`Page` union（`Sidebar.tsx:3`）与 `App.tsx` 条件渲染同步加一行。`IcSkills` 草案（16px / stroke 1.5 / currentColor，24×24 viewBox，闪电 = 一键可运行的能力，与现有 8 个导航图标零形状冲突）：
+
+```tsx
+export const IcSkills = () => <I d="M13 2 4 14h6l-1 8 9-12h-6z" />; // 闪电
+```
+
+页面组件签名 `SkillsPage({state,refresh})` 同既有页；写操作走 R0 §6.5 定案的 3 条 skills 写通道，运行走既有 `agent.run`，绑定走既有 `jobs.create`——本页零新执行面。
+
+**总布局**（content-grid 左表单右列表，同 `ContentPage.tsx:16`）：
+
+```
+┌ h1 技能 ─ 副描述「把对 Agent 说过的有效指令，沉淀成可复用、可定时执行的模板。」
+│ ┌ panel.skill-form ──────────────┐ ┌ panel 技能库 ──────────────┐
+│ │ h2 [新建技能 ｜ 编辑：{name}＋取消] │ │ N × .skill-item 或 Empty  │
+│ │ 名称     #skill-name             │ │                            │
+│ │ 描述     #skill-desc（可选）       │ │                            │
+│ │ 指令模板 #skill-template rows=10 │ │                            │
+│ │ help：{占位符} 发送前手动替换      │ │                            │
+│ │ [保存技能｜保存修改] ＋ err-msg    │ │                            │
+└─┴────────────────────────────────┴─┴────────────────────────────┴
+```
+
+**表单双态**（同一 panel，`editing: Skill | null` 切换，控件不复制 JSX）：
+
+- 新建态：h2「新建技能」+ 按钮「保存技能」（btn-primary）；名称或模板 trim 后为空 → disabled + err-msg「请填写名称和指令模板」。成功 → toast「已保存技能」+ 清空回新建态 + 右栏新行 flash 3s（`.content-item.flash` 既有）。保存失败 err-msg「保存失败：{err}」，表单保留输入可重试。
+- 编辑态：h2「编辑：{name}」同行右侧「取消」btn-link（回新建态并清空）；三字段回填；按钮改文案「保存修改」。成功 → toast「已保存技能」+ 回新建态 + flash 被编辑行。
+
+**列表项结构**（`article.content-item.skill-item`；4 个操作按钮独占信息下方一行，不挤右侧——330px 面板同源教训）：
+
+```
+│ b {名称}                    [Agent 创建 pill.info]（仅 origin='agent'）
+│ p {描述｜「（无描述）」} · 更新于 {fmtUpdate(updatedAt)}
+│ .skill-item-actions: [运行] [编辑] [绑定定时任务] [IcTrash 删除（aria-label=删除技能 {name}）]
+└ （绑定表单或删除确认可内联展开，见下）
+```
+
+- **origin 徽标**：`Agent 创建` 用 `.pill.info`——在 `.pill.ok/.pill.warn` 旁新增 `background: color-mix(in srgb, var(--info) 15%, var(--bg-2)); color: var(--info)`（info 是 §9.3「需用户额外注意」的准确语义色，ok/warn 分别已被绑定态/警示占用；info on bg-2 = 5.78:1 达标）。手建技能**不标**（低噪原则，R0 §6.1 既定）。
+- **运行**按钮：调 `agent.run(template)`，IPC 调用期间按钮 disabled（防连点双触发；`agent:run` fire-and-forget 返 runId 后即恢复，**不跟踪 run 全程**——运行状态由 AgentPanel 的事件流呈现，技能页不重复订阅，R0 §2.3 的「去面板查看」引导由 toast 文案承担：toast「已触发运行，到 Agent 面板查看」；IPC reject（引擎未配好等）toast 红「运行触发失败：{err}」。**编辑**：表单切编辑态并回填。**绑定定时任务**：展开内联绑定表单（互斥：同时只展开一项）。**删除**：两段式（见下）。
+
+**绑定定时任务内联展开表单**（`.skill-bind`，展开于该列表项内、操作行下方）：
+
+```
+│ .skill-bind（展开，只有一项同时展开）
+│ │ 执行周期  [select 模板：每天 09:00／每小时／每周一 09:00／自定义]（复制 CRON_TEMPLATES 共享）
+│ │ [自定义时] input cron 表达式
+│ │ .cron-preview（cronPreview 共享后调用：下次运行：M月d日 HH:mm ／ 无法预览该表达式 ／ 366 天内不会触发）
+│ │ [创建定时任务] btn-primary（jobName 默认「{技能名}」；payload={skillId}，不含 prompt）
+│ └ origin='agent' 时的 hint 行（.help）：该技能由 Agent 生成，绑定定时任务前请先确认模板内容
+```
+
+复用要点：CRON_TEMPLATES 与 cronPreview 都从共享层 import（§12.4），不在技能页复制；三态预览文案逐字沿用自动化页（同一函数同一文案源）；任务名不暴露输入框（技能名即任务名，KISS——用户要改名去自动化页编辑心智反而重）。
+
+**五状态逐一刻画**：
+
+| 状态 | 刻画 |
+|---|---|
+| ① 空态 | 右栏 `Empty`（icon=`<IcSkills/>`）title「还没有技能」hint「对话里让 Agent 沉淀经验，或在这里写下第一个技能」；左表单始终可写（空态也渲染，引导用户直接填）。无技能时操作不依赖右栏。 |
+| ② 列表态 | 上述结构；列表数据 = `state.skills`（app:state 投影），updatedAt 倒序（同 repo listContents/listJobs 惯例）。 |
+| ③ 编辑态 | 左表单头部「编辑：{name} ＋ 取消」，回填三字段；右栏被编辑项加 `.skill-item.editing`（`outline:1px solid var(--accent-text)`，同 flash 视觉语言）。 |
+| ④ 删除确认 | 两段式（ConfirmButton 同构，见 §12.4）：按钮常态为 `IcTrash` 图标（aria-label/title=`删除技能 {name}`），首点变文字「确认删除？」3s 恢复；二点执行。已绑 cron 的技能首点后额外显示 `.skill-del-hint`：「该技能被 {n} 个定时任务引用，删除后这些任务将运行失败」（前端 state.jobs 数 payload.skillId 命中数；**提示不拦截**，R0 §9.5 既定）。 |
+| ⑤ 绑定表单 | 展开即上述 `.skill-bind`；cron 非法（parseCron=null）时「创建定时任务」disabled + 预览行显「无法预览该表达式」；成功 toast「已创建定时任务」+ 收起 + 跳转引导（toast 内不做链接，用户自行切自动化页核对——避免跨页状态联动复杂度）。 |
+
+**三问自检（逐状态）**：
+
+- **空态长什么样**：右栏 Empty 引导 + 左表单可写；技能页无骨架屏需求（skills 随 app:state 全量到达，无独立 loading）。
+- **出错长什么样**：表单校验 → err-msg 行内（`AccountsPage.tsx:52` 模式）；运行/绑定失败 → toast；悬空引用不在本页出现（悬空的是任务侧，见 §12.3）。
+- **加载中长什么样**：`state=null`（冷启动）时整页暂不渲染主体（同既有页 `{state && …}` 惯例）；首次 IPC reject 不设专门错误态页（app:state 失败是全局问题，由 App 层现有行为兜底）——技能页不自造第二套页面级错误处理。
+
+### 12.2 AgentPanel 改造
+
+**空态双区**（`AgentPanel.tsx:139-140` Empty 的 suggestions 改为两段渲染；Empty 组件不动，在其 `.empty-suggest` 内分两组）：
+
+```
+Empty（items.length===0 时，现状不变）
+  ├ suggestions 区上组（3 个通用指令 chips，保留现状三条文案不动——「检查各账号登录态」「打开小红书创作中心并截图」「列出所有定时任务」）
+  └ suggestions 区下组「运行技能」：前 3 个技能各一 chip（label=技能名，title=描述），
+    点击 = 入口 1：setMsg(template) 填入 composer，不发送（占位符由用户替换）
+```
+
+- **「列出所有定时任务」文案不动**：R0 §10.5 的「谎言修复」靠工具面上线兑现，不靠改文案；且 `e2e/dashboard.spec.ts:63/85/111/129` 用「检查各账号登录态」作 chat prompt 种子，同源 chips 全部保持稳定。
+- 有对话历史后 chips 消失（Empty 仅空态渲染，现状机制不动）。
+
+**常驻入口定案：只空态 chips，不做 composer 上方常驻下拉。** 理由：
+
+1. **330px 空间预算**：`.agent` 是 `grid-template-rows:55px auto minmax(0,1fr) auto`（`app.css:36`），composer 之上再插一行常驻下拉会把第 3 行 chat 区再压掉 ~32px；`launch.spec.ts:66-101` 有「长对话不撑破视口、composer 不越界」的布局断言，常驻行增加该断言的脆弱面（banner+cron-banner 已是 `auto` 行的既有变量）。
+2. **心智路径成立**：技能的常驻操作入口在技能页（运行/绑定/编辑全套）；面板空态 chips 已覆盖「刚打开面板想快速复用」场景；有对话历史时用户正在连续对话语境，插技能下拉是打扰而非帮助。
+3. **降级后果小**：若 v1 后用户反馈强烈，「技能 ▾」折叠行是纯增量改动（不破坏任何既有 class），可作 R5 优化项——但现在不为一个未验证的需求预付布局风险。
+
+（R0 §6.2 建议「常驻下拉 + 空态 chips 保留」，本节以空间预算与布局断言风险为由**推翻**，定案以本节为准。若 R5 复议采纳常驻入口，折叠态视觉规格预留如下——一行按钮 `技能 ▾`（btn-ghost + `IcChevronDown`，高 32px 同 `--btn-h`，仅空态与有对话两境一致渲染），点击展开 `.empty-suggest` 同款 chips 容器浮层（不占 grid 行高，absolute 定位于 composer 之上），选中后填入 composer 并收起。该形态为纯增量，不触碰任何 §5.1 既有契约。）
+
+### 12.3 Dashboard 第 5 卡 + 自动化页二选一
+
+**第 5 张卡定案：cards 改 `repeat(auto-fit, minmax(200px, 1fr))`，5 张同排。** 理由与影响：
+
+- 现状 `repeat(4,1fr)`（`app.css:19`），硬塞第 5 张必换列数。auto-fit 方案 1440 主区（min 600~1fr）下 5 卡一行（每卡 ≥200px 富余），窗口收窄时自然回落 4/3/2 列——比「4+1 换行孤卡」视觉稳。
+- **必须同步改 e2e**：`dashboard.spec.ts:52` 断言 `cards=4` → 改 `5`（这是新增而非破坏：原断言语义是「卡数量与页定义一致」，卡定义变了断言跟着变，属 §12.6 契约增量，gate 在 R3 随实现同步改）。
+- 新卡结构照抄（`Dashboard.tsx:26-30`）：`<div className="card"><strong>{state.skills.length}</strong><span>技能</span><span className="sub">{最近更新 ? 更新于 {relTime} : 还没有技能}</span></div>`。取数走 state 投影（R0 §6.3：skills 进 app:state，零新 IPC）；副行 relTime 从共享层取（§12.4）。
+
+**自动化页「写指令 / 选技能」定案：radio-segmented（两个 `.seg-opt` 单选按钮组），不用 select。** 理由：
+
+- 二选一是**互斥模式切换**且两者地位对等（不像 workflowType 三选一里 agent.run 与 demo 是遗留分层）；seg 控件把当前模式常显，省一次点击展开；select 的折叠态只显示已选值，用户每次都要点开才知道有第二个选项。
+- 空间与并发：自动化页左栏表单本就多字段，一行两个按钮（各 ~90px）比 select 展开列表的浮动层对 content-grid 更友好。
+
+JSX 结构（嵌在 `workflowType==='agent.run'` 分支内、`AutomationPage.tsx:69` 的 textarea 位置）：
+
+```tsx
+<div className="seg" role="radiogroup" aria-label="任务内容来源">
+  <button type="button" className={`seg-opt ${!useSkill?'active':''}`} role="radio" aria-checked={!useSkill} onClick={()=>setUseSkill(false)}>写指令</button>
+  <button type="button" className={`seg-opt ${useSkill?'active':''}`} role="radio" aria-checked={useSkill} onClick={()=>setUseSkill(true)}>选技能</button>
+</div>
+{!useSkill
+  ? <textarea className="field" rows={12} placeholder="Agent 指令，如：打开小红书创作中心，检查登录状态并汇报" …/>（现状 textarea 原样）
+  : <>
+      <select className="field" aria-label="选择技能" value={skillId} onChange={…}>
+        <option value="">选择一个技能…</option>
+        {state.skills.map(s=><option key={s.id} value={s.id}>{s.name}{s.description?` — ${s.description}`:''}</option>)}
+      </select>
+      {选中 origin='agent' 技能 && <p className="help">该技能由 Agent 生成，请先确认模板内容</p>}
+      {无技能可选 && <p className="help">还没有技能，去「技能」页创建或对话里让 Agent 沉淀</p>}
+    </>}
+```
+
+- `.seg`/`.seg-opt` 新 CSS（token 内取值）：`.seg{display:flex;gap:8px;margin:0 0 12px}.seg-opt{flex:1;background:var(--hover);color:var(--text-2)}.seg-opt.active{background:var(--accent);color:#fff;border-color:transparent}`——全用既有变量。
+- 提交：写指令 → `payload={prompt}`（现状）；选技能 → `payload={skillId}`（R0 §2.4 形态）。两者都空/都缺 → 创建按钮 disabled，沿用 `promptMissing` 推导改名 `contentMissing`。
+- 切换不互清：从写指令切到选技能保留已输入 prompt（用户切错不丢字），提交时按当前模式取值。
+
+**悬空 skillId 任务行警示**（`AutomationPage.tsx:73` 任务行 + 技能页同名引用方）：
+
+```
+任务行 payload 含 skillId：
+  技能在 → p 行显示「技能：{name}」（替代 prompt 首行 80 字截断逻辑）
+  技能不在（state.skills 无此 id）→
+    <span className="pill warn" title="绑定的技能已被删除，请重新配置或删除该任务">技能已删除</span>
+    ＋ 该任务行 job_runs 最近一次 failed 的 error 摘要（title 属性，hover 可见）
+```
+
+- pill 色 = `--warn`（15% tint 底，`AutomationPage` 已有 `.pill.warn` 类直接用）——语义是「可运行但会失败、需用户处理」，warn 比 err 准（err 留给已发生错误的运行状态行）。
+- error 摘要：AutomationPage 任务行现无 job_runs 数据（列表只有 jobs），hover title 的完整 error 摘要属可选增强（挂载时 runsList 或按需查询）——R3 取简：**v1 先只落 pill + 固定 title 文案**（即 §9.5 的用户可见下限），error 摘要的取数路径（Dashboard 已有 runsList 先例）登记为 R5 增强，不在本节硬规范内。
+
+### 12.4 共享抽取清单
+
+三项抽取，全部「页面 → 共享层」单向移动，行为零变化：
+
+| # | 抽取项 | 现位置 | 落点 | 理由 |
+|---|---|---|---|---|
+| 1 | `cronPreview(expr)` + `CRON_TEMPLATES` | `AutomationPage.tsx:8-19` | **`src/shared/cronPreview.ts`**（新文件） | 两页（Automation/Skills）都要用。落 shared 而非 AutomationPage 导出：①它是纯展示函数（parseCron+nextCronDate 包装），与 cronNext 同属 shared 的 cron 层；②从页面文件 import UI 工具会让 SkillsPage 反向依赖 AutomationPage（页面间横向依赖，本仓库无先例）；③可进 vitest（预览三态文案断言，`tests/format.test.ts` 旁加 `tests/cron-preview.test.ts`）。**签名不变**：`cronPreview(expr: string): string \| null` + 常量导出 `CRON_TEMPLATES`。 |
+| 2 | DeleteJobButton 两段式 | `AutomationPage.tsx:22-33` | **`src/renderer/components/ConfirmButton.tsx`**（新组件） | 技能删除复用同范式。泛化为 `ConfirmButton({kindLabel, onConfirm, className?})`：`aria-label`/`title` 模板 `删除{kindLabel}`，确认文案「确认删除？」、3s 恢复、二点执行全部照抄。技能页用法 `<ConfirmButton kindLabel={删除技能 ${s.name}} onConfirm={()=>…}/>`。落 components/ 而非 pages/：它是跨页 UI 组件（Empty 同级），不是页面私有。**注意**：泛化后 DeleteJobButton 的 aria-label 字面必须逐字还原（`删除任务 {job.name}`），`automation-delete.spec.ts:64` 用该选择器——泛化不改可断言面。 |
+| 3 | `relTime(t)` / `fmtUpdate(t)` | `Dashboard.tsx:5` / `ContentPage.tsx:5` | **`src/shared/format.ts`**（既有文件追加） | 语义重叠（相对时间 / 绝对时间戳），三处消费（Dashboard 卡副行 + 运行列表、ContentPage 列表、SkillsPage 列表/卡副行）。format.ts 是 ui-redesign §7.1 定下的共享格式层先例（fmtCost/fmtDur/toolLabel 已在），relTime/fmtUpdate 是同类展示函数，同文件追加导出即可，两页面文件删本地实现改 import。**函数体零改动**，`tests/format.test.ts` 补两组用例（relTime 刚刚/59s 前/分钟/小时/天边界；fmtUpdate 固定时间戳格式化）。 |
+
+抽取纪律（R3 实施）：①先抽后用——三处抽取在技能页 JSX 之前完成，技能页只 import 不再复制；②不抽 Empty/InlineInput（已是组件层共享，零动作）；③cronPreview 抽出后 AutomationPage 删除本地副本，避免双份漂移（R0 §6.1 的关切即此项）。
+
+### 12.5 新文案总表（全部中文，e2e 断言列 = R4 新 spec 的锚点）
+
+| # | 位置 | 文案 | e2e 断言 |
+|---|---|---|---|
+| 1 | 侧栏第 9 项 | `技能` | skills-page.spec（`.sidebar button` has-text「技能」导航） |
+| 2 | 技能页 h1／副描述 | `技能`／`把对 Agent 说过的有效指令，沉淀成可复用、可定时执行的模板。` | h1 断言 |
+| 3 | 表单字段 label | `名称`／`描述`／`指令模板` | 不直接断言（placeholder 见 5-6） |
+| 4 | 表单 placeholder | 名称`如：每日登录态巡检`；描述`一句话说明这个技能做什么（可选）`；模板`打开 {账号} 的创作中心，检查登录态并截图保存到 drafts` | 模板 placeholder 断言（空态校验锚点） |
+| 5 | 模板 help 行 | `{占位符} 在发送前手动替换，应用不会自动解析` | 不断言 |
+| 6 | 表单按钮 | 新建态`保存技能`／编辑态`保存修改`／取消`取消` | 「保存技能」断言（创建入口锚点） |
+| 7 | 表单校验 err-msg | `请填写名称和指令模板` | skills-page.spec（空提交断言） |
+| 8 | 保存失败 err-msg | `保存失败：{err}` | 不断言（错误注入不可离线造） |
+| 9 | 成功 toast | `已保存技能` | skills-page.spec（创建后断言） |
+| 10 | 空态 | title `还没有技能`／hint `对话里让 Agent 沉淀经验，或在这里写下第一个技能` | skills-page.spec（fresh app 空态断言，`page .empty b`） |
+| 11 | 列表项描述缺省 | `（无描述）` | 不必单独断言（随列表行断言覆盖） |
+| 12 | origin 徽标 | `Agent 创建`（pill.info） | skills-page.spec（建技能后——用 IPC evaluate 直建或 UI 建 manual 无徽标**反断言**） |
+| 13 | 列表操作按钮 | `运行`／`编辑`／`绑定定时任务`／`删除` | 「运行」「绑定定时任务」断言（交互锚点） |
+| 14 | 运行反馈 | toast `已触发运行，到 Agent 面板查看`；失败 toast `运行触发失败：{err}` | skills-page.spec（运行后 RunItem 出现于 AgentPanel 的替代断言：onAgentDone collect） |
+| 15 | 绑定表单 label | `执行周期`（同自动化页，术语收敛） | 不重复断言（自动化页已断言 cron 行为） |
+| 16 | 绑定预览三态 | `下次运行：{M月d日 HH:mm}`／`无法预览该表达式`／`366 天内不会触发`（逐字沿用共享 cronPreview） | 不重复断言（vitest cron-preview.test 覆盖文案） |
+| 17 | 绑定按钮 | `创建定时任务` | skills-page.spec / skill-cron.spec（绑定动作锚点） |
+| 18 | 绑定成功 toast | `已创建定时任务` | 不必断言（jobs 数量断言更硬） |
+| 19 | agent 技能 hint | `该技能由 Agent 生成，绑定定时任务前请先确认模板内容`（技能页绑定表单 + 自动化页选技能，同文案） | 不断言（fake 模式造不出 origin='agent'，见 R0 §9.1） |
+| 20 | 删除确认 | 首点`确认删除？`3s 恢复；绑定提示`该技能被 {n} 个定时任务引用，删除后这些任务将运行失败` | skills-page.spec（两段式断言，抄 automation-delete 模式）；绑定提示用 evaluate 直造绑定后断言 |
+| 21 | AgentPanel 空态技能 chips | 分组标签 `运行技能`；chip = 技能名 | skills-page.spec（chip 点击后 `.composer textarea` value === 模板文本且无新 RunItem——AC-S2 核心断言） |
+| 22 | Dashboard 第 5 卡 | `技能`／副行 `更新于 {relTime}` 或 `还没有技能` | dashboard.spec 增补（cards=5） |
+| 23 | 自动化页 seg | `写指令`／`选技能` | skills-page.spec（或 cron-agent 增补：切到选技能创建任务） |
+| 24 | 自动化页技能 select | `选择一个技能…`（placeholder option）；option 文案 `{name} — {description}`；无技能 help `还没有技能，去「技能」页创建或对话里让 Agent 沉淀` | 不断言 help；select 存在性可断言 |
+| 25 | 悬空任务行 | pill `技能已删除`，title `绑定的技能已被删除，请重新配置或删除该任务` | skill-cron.spec（删技能后断言任务行 pill——AC-S4 UI 面） |
+| 26 | 悬空 run error | Scheduler 落库 error 文案 `绑定的技能已被删除，请重新配置或删除该任务`（与 25 的 title 同源） | skill-cron.spec（job_runs.error 前缀断言，AC-S4 锚定「技能不可用」前缀的落地形态） |
+| 27 | 任务行正常态 | `技能：{name}` | skill-cron.spec（绑定任务行显示） |
+
+文案规则：全部沿用术语表口径（技能/指令模板/占位符/定时任务）；`{n}`/`{name}` 等花括号为变量位，e2e 用具体值代入。
+
+### 12.6 e2e 选择器契约增量
+
+**既有契约（ui-redesign §5.1）不可破坏**——保留清单（`.composer textarea`、`.composer button:has-text("发送")`、`.chat`、`.content-item`、`.field`、`.pill`、`.step`、`.empty` 等）原样有效，本节只做**增量**。新稳定 class 清单（新 spec 只按此写）：
+
+```css
+/* 技能页 */
+.skill-form                    /* 左表单 panel（区分于右列表面板） */
+.skill-item                    /* 每个技能列表行（在 .content-item 上追加） */
+.skill-item .pill.info         /* origin='agent' 徽标 */
+.skill-item-actions            /* 操作行容器（运行/编辑/绑定定时任务/删除） */
+.skill-bind                    /* 内联绑定表单展开容器 */
+.skill-del-hint                /* 删除时绑定引用提示行 */
+#skill-name / #skill-desc / #skill-template   /* 表单三字段（id 定位，同 #job-name 先例） */
+
+/* 自动化页增量 */
+.seg / .seg-opt                /* 写指令/选技能 radio-segmented */
+select[aria-label="选择技能"]   /* 技能下拉 */
+
+/* Dashboard 增量 */
+.card（第 5 张）                /* 复用既有 .card class，spec 断言 cards 数量=5 */
+
+/* AgentPanel 增量 */
+.empty-suggest（复用）           /* 技能 chips 与通用 chips 同容器，spec 用 has-text 技能名定位 */
+```
+
+写法约束（沿 automation-delete/dashboard spec 既有模式）：①按文案/aria-label 定位优先（`byText('.page button','保存技能')`、`aria-label="删除技能 {name}"`），class 只做容器限定；②三处既有 spec 的**增量修改**：`dashboard.spec.ts:52` `cards=4`→`5`（随第 5 卡实现同步）；`launch.spec.ts` 不动（技能 chips 在空态 `.empty-suggest` 内，不影响 composer 断言）；`automation-delete.spec.ts` 不动（ConfirmButton 泛化保持 aria-label 逐字不变）。③fake 模式造不出 origin='agent'（R0 §9.1）——徽标断言只能用 IPC evaluate 直插 DB 行（skill-create IPC 无 origin 参数时手动 UPDATE skills SET origin='agent'）或留真网关手测。
+
+### 12.7 对 R0 §6 的勘误与升级（R1 实读源码后）
+
+1. **§6.2 常驻下拉建议撤销**：R0 建议「常驻下拉 + 空态 chips」，§12.2 以 330px 面板空间预算（`app.css:36` grid 行结构 + `launch.spec` 布局断言风险）推翻，定案只空态 chips。R2/R3 以 §12.2 为准。
+2. **§6.4 「radio-segmented 或 select，R1 定」已定**：radio-segmented（§12.3），理由与 JSX 结构见彼处。
+3. **§6.1 cronPreview 抽取落点补全**：R0 只说「抽到 shared/」，§12.4 定为 `src/shared/cronPreview.ts` 新文件（连同 CRON_TEMPLATES），并要求 AutomationPage 删本地副本。
+4. **§6.3 relTime 「抽共享」落点补全**：定为 `src/shared/format.ts` 追加（与 fmtUpdate 合并收敛，Dashboard.tsx:5 与 ContentPage.tsx:5 双副本同删）。
+5. **§6.4 error 摘要降级**：R0 要求「任务行 hover title 或详情展开给出 error」，R1 实读后知任务行无 job_runs 数据源（列表只含 jobs），v1 定为固定 title 文案（§12.3），动态 error 摘要移 R5。
+6. **§6.1 空态 hint 措辞微调**：定稿「对话里让 Agent 沉淀经验，或在这里写下第一个技能」（R0 原句「沉淀」保留，两入口并列更明确）。
+
+R0 §6 其余条目（数据来源走 state 投影、五状态清单、Dashboard 卡结构照抄、悬空 pill 警示）经实读核对与现状一致，无出入。
