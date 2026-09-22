@@ -1,0 +1,53 @@
+src/renderer/styles/app.css
+  s_a5d1a373f7f2b8::t_60410825387995 1
+  s_a5d1a373f7f2b8::t_0db9ed37554994 10-12
+e2e/logs.spec.ts
+  s_a5d1a373f7f2b8::t_1a2f80992eb9b3 2,11
+e2e/launch.spec.ts
+  s_a5d1a373f7f2b8::t_928a9b35a4d870 45-79
+  s_a5d1a373f7f2b8::t_1a2f80992eb9b3 2,11
+e2e/helpers.ts
+  s_a5d1a373f7f2b8::t_39d1333b6d7bbd 67-82
+e2e/settings.spec.ts
+  s_a5d1a373f7f2b8::t_1a2f80992eb9b3 4
+src/renderer/pages/AccountsPage.tsx
+  s_a5d1a373f7f2b8::t_5292f07d740b10 1
+  s_a5d1a373f7f2b8::t_5d16d173fede80 4-13,17-18,20-21,23-54
+src/renderer/global.d.ts
+  s_a5d1a373f7f2b8::t_6b917e30288a93 5
+src/main/db/repository.ts
+  s_a5d1a373f7f2b8::t_0583ecee1fb9f4 24-26
+e2e/cron-agent.spec.ts
+  s_a5d1a373f7f2b8::t_1a2f80992eb9b3 4,25
+docs/specs/profile-mgmt-and-ui-fixes.md
+  s_a5d1a373f7f2b8::t_8aaaef27f3aaf8 1-35
+src/shared/ipc.ts
+  s_a5d1a373f7f2b8::t_c22a16b8cac139 6
+src/renderer/pages/BrowserPage.tsx
+  s_a5d1a373f7f2b8::t_d618c4a5ed6534 2-14,17-22
+e2e/browser.spec.ts
+  s_a5d1a373f7f2b8::t_1a2f80992eb9b3 2,11
+src/preload/preload.cts
+  s_a5d1a373f7f2b8::t_d969ec62732079 4
+  s_a5d1a373f7f2b8::t_36886945e22556 22
+src/main/ipc/registerIpc.ts
+  s_a5d1a373f7f2b8::t_21bf4098475cce 19
+e2e/agent.spec.ts
+  s_a5d1a373f7f2b8::t_1a2f80992eb9b3 4,25
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.4",
+  "base_commit_sha": "7043dc1e64ec50a38f423ea6c41986962d066f19",
+  "prompts": {},
+  "sessions": {
+    "s_a5d1a373f7f2b8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0ba06520-6c0a-4f73-8c1a-1f1639e94bd3",
+        "model": "glm-5.3"
+      },
+      "human_author": "yangnq <yangnq@xiaopeng.com>"
+    }
+  }
+}
