@@ -4,6 +4,13 @@ import { db } from './index.js';
 import { accounts, browserProfiles, contents, jobRuns, jobs, platforms } from './schema.js';
 import type { AccountRecord, BrowserProfile, ContentItem, JobRecord, PlatformRecord } from '../../shared/types.js';
 
+// Skills domain (agent-capabilities §13.1): exported as its own repo, NOT folded
+// into the `repo` object below — `repo` is module-bound to the production db
+// and untestable in vitest; SkillsRepo takes an injected sqlite handle. All
+// callers (IPC / Gateway / MCP tools) go through a SkillsRepo instance only.
+export { SkillsRepo, SKILLS_DDL } from './skillsRepo.js';
+export type { CreateSkillInput, UpdateSkillPatch } from './skillsRepo.js';
+
 export const repo = {
   listPlatforms(): PlatformRecord[] { return db.select().from(platforms).orderBy(platforms.name).all() as PlatformRecord[]; },
   listAccounts(): AccountRecord[] { return db.select().from(accounts).orderBy(desc(accounts.updatedAt)).all() as AccountRecord[]; },

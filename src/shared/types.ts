@@ -41,8 +41,31 @@ export type JobRecord = {
   cron: string;
   enabled: boolean;
   workflowType: string;
+  /**
+   * agent.run semantics (agent-capabilities §2.4/§13.6): exactly one of
+   * `prompt` (inline instruction) or `skillId` (bound skill row) is set —
+   * both keys are persisted, the inactive one is null, so the renderer can
+   * branch on which field is non-null. Legacy v0.4 rows only have `prompt`.
+   */
   payload: Record<string, unknown>;
   lastRunAt?: number | null;
+  createdAt: number;
+  updatedAt: number;
+};
+
+/**
+ * One row of the `skills` table (agent-capabilities §13.1). Global asset —
+ * not scoped to an account or workspace. `origin` is decided by the calling
+ * layer (IPC handler hardcodes 'manual', the skill_create tool 'agent');
+ * client input never participates.
+ */
+export type SkillRecord = {
+  id: string;
+  name: string;
+  description: string;
+  /** Prompt template text; `{placeholder}` is a plain-text convention, never parsed. */
+  promptTemplate: string;
+  origin: 'manual' | 'agent';
   createdAt: number;
   updatedAt: number;
 };
@@ -151,6 +174,8 @@ export type AppState = {
   tabs: BrowserTab[];
   contents: ContentItem[];
   jobs: JobRecord[];
+  /** Skills projection (agent-capabilities §13.7): one projection feeds the skills page, Dashboard card and AgentPanel chips. */
+  skills: SkillRecord[];
   activeProfileId: string | null;
   activeTabId: string | null;
 };

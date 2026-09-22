@@ -1,8 +1,9 @@
 import { ipcMain, type BrowserWindow } from 'electron';
 import { IPC } from '../../shared/ipc.js';
-import type { AgentEngineConfig, AgentRunSummary, JobRunSummary, LogFilter } from '../../shared/types.js';
+import type { AgentEngineConfig, AgentRunSummary, JobRunSummary, LogFilter, SkillRecord } from '../../shared/types.js';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 import type { Scheduler } from '../scheduler/Scheduler.js';
+import type { SkillsRepo } from '../db/skillsRepo.js';
 import { repo } from '../db/repository.js';
 import { rawSqlite } from '../db/index.js';
 import { logger } from '../services/logger.js';
@@ -13,8 +14,8 @@ import { AccountFilesService, accountRoot, ensureAccountDir } from '../services/
 
 const jobsLog = logger.child('jobs');
 
-export function registerIpc(win: BrowserWindow, browser: BrowserKernel, scheduler: Scheduler, agent: ClaudeAgentService) {
-  const state=()=>({platforms:repo.listPlatforms(),accounts:repo.listAccounts(),profiles:repo.listProfiles(),tabs:browser.tabs.list(),contents:repo.listContents(),jobs:repo.listJobs(),activeProfileId:browser.activeProfile,activeTabId:browser.activeTab});
+export function registerIpc(win: BrowserWindow, browser: BrowserKernel, scheduler: Scheduler, agent: ClaudeAgentService, skills: SkillsRepo) {
+  const state=()=>({platforms:repo.listPlatforms(),accounts:repo.listAccounts(),profiles:repo.listProfiles(),tabs:browser.tabs.list(),contents:repo.listContents(),jobs:repo.listJobs(),skills:skills.list(),activeProfileId:browser.activeProfile,activeTabId:browser.activeTab});
   const changed=()=>win.webContents.send(IPC.EVENT_STATE_CHANGED);
   ipcMain.handle(IPC.APP_STATE,()=>state());
   ipcMain.handle(IPC.ACCOUNT_CREATE,(_e,input)=>{const a=repo.createAccount(input);changed();return a;});
@@ -32,9 +33,17 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
   ipcMain.handle(IPC.CONTENT_CREATE,(_e,input)=>{const x=repo.createContent(input);changed();return x;});
   ipcMain.handle(IPC.CONTENT_UPDATE,(_e,id,patch)=>{repo.updateContent(id,patch);changed();});
   ipcMain.handle(IPC.JOB_LIST,()=>repo.listJobs());
-  ipcMain.handle(IPC.JOB_CREATE,(_e,input)=>{const x=repo.createJob(input);scheduler.reload();changed();return x;});
-  ipcMain.handle(IPC.JOB_TOGGLE,(_e,id,enabled)=>{repo.toggleJob(id,enabled);scheduler.reload();changed();});
-  ipcMain.handle(IPC.JOB_DELETE,(_e,id: string)=>{repo.deleteJob(id);scheduler.reload();changed();jobsLog.info('Job deleted',{jobId:id});});
+  // §13.8 route convergence: all three mutations go through Scheduler instance
+  // methods (reload folded in) — no caller may call repo + reload on its own.
+  ipcMain.handle(IPC.JOB_CREATE,(_e,input)=>{const x=scheduler.createJob(input);changed();return x;});
+  ipcMain.handle(IPC.JOB_TOGGLE,(_e,id,enabled)=>{scheduler.toggleJob(id,enabled);changed();});
+  ipcMain.handle(IPC.JOB_DELETE,(_e,id: string)=>{scheduler.deleteJob(id);changed();jobsLog.info('Job deleted',{jobId:id});});
+  // Skills write channels (§13.7). SKILL_LIST is deliberately absent — the list
+  // rides the app:state projection. origin is hardcoded 'manual' here: client
+  // input never decides origin (the skill_create tool hardcodes 'agent').
+  ipcMain.handle(IPC.SKILL_CREATE,(_e,input:{name:string;description?:string;promptTemplate:string})=>{const s=skills.create({...input,origin:'manual'});changed();return s;});
+  ipcMain.handle(IPC.SKILL_UPDATE,(_e,id:string,patch:{name?:string;description?:string;promptTemplate?:string})=>{const s=skills.update(id,patch);changed();return s;});
+  ipcMain.handle(IPC.SKILL_DELETE,(_e,id: string)=>{skills.delete(id);changed();});
   ipcMain.handle(IPC.LOGS_LIST,(_e,filter:LogFilter)=>({entries:logger.query(filter ?? {}),modules:logger.modules()}));
   ipcMain.handle(IPC.LOGS_CLEAR,()=>{logger.clear();});
   ipcMain.handle(IPC.SETTINGS_GET,()=>getAgentEngineConfig());

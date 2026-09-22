@@ -1,14 +1,17 @@
 import { app, BrowserWindow } from 'electron';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { initDatabase } from './db/index.js';
+import { initDatabase, rawSqlite } from './db/index.js';
+import { SkillsRepo } from './db/skillsRepo.js';
 import { BrowserKernel } from './browser/BrowserKernel.js';
 import { bindUaSource } from './browser/ProfileManager.js';
 import { Scheduler } from './scheduler/Scheduler.js';
 import { initClaudeAgent } from './agent/claudeAgent.js';
+import { createAppTools } from './agent/appTools.js';
 import { createStepBus } from './agent/stepBus.js';
 import { registerIpc } from './ipc/registerIpc.js';
 import { startGateway } from './gateway/Gateway.js';
+import { repo } from './db/repository.js';
 import { logger } from './services/logger.js';
 import { IPC } from '../shared/ipc.js';
 
@@ -37,9 +40,15 @@ async function createWindow() {
   bindUaSource(mainWindow.webContents);
   const changed=()=>mainWindow?.webContents.send('event:state-changed');
   kernel = new BrowserKernel(mainWindow, changed); initDatabase(); kernel.bootstrap();
+  const skills = new SkillsRepo(rawSqlite());
   const agent = initClaudeAgent(kernel, { bus: agentBus });
-  const scheduler=new Scheduler(kernel, agent); scheduler.reload(); registerIpc(mainWindow,kernel,scheduler,agent);
-  void startGateway(kernel,scheduler,()=>mainWindow).catch(e=>log.error('Gateway start failed',String(e)));
+  const scheduler=new Scheduler(kernel, agent, skills); scheduler.reload();
+  // Break the agent<->scheduler cycle (§13.3): appTools needs the scheduler, the
+  // scheduler needs the agent — wire the tool face after both exist, before any
+  // window load. Broadcast = the same EVENT_STATE_CHANGED every IPC write sends.
+  agent.setAppTools(createAppTools({ repo, scheduler, skills, onChange: changed }));
+  registerIpc(mainWindow,kernel,scheduler,agent,skills);
+  void startGateway(kernel,scheduler,skills,()=>mainWindow).catch(e=>log.error('Gateway start failed',String(e)));
   const dev=process.env.VITE_DEV_SERVER_URL; if(dev) await mainWindow.loadURL(dev); else await mainWindow.loadFile(join(__dirname,'../../dist/index.html'));
   mainWindow.on('closed',()=>{mainWindow=null;kernel=null;});
   log.info('App window ready', { dev: Boolean(dev) });

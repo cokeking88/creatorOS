@@ -29,6 +29,7 @@ export const assets = sqliteTable('assets', {
   id: text('id').primaryKey(), contentId: text('content_id'), kind: text('kind').notNull(), path: text('path').notNull(), mimeType: text('mime_type'), ...timestamps
 });
 
+/** DEPRECATED (v0.5): 表单式编排方向已被技能系统取代（agent-capabilities §10.1）。存量库保留，勿新增读写。 */
 export const workflows = sqliteTable('workflows', {
   id: text('id').primaryKey(), name: text('name').notNull(), type: text('type').notNull(), definitionJson: text('definition_json').notNull().default('{}'), ...timestamps
 });
@@ -48,4 +49,11 @@ export const agentRuns = sqliteTable('agent_runs', {
 
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(), value: text('value').notNull(), updatedAt: integer('updated_at').notNull()
+});
+
+// v0.5 skills mirror (agent-capabilities §13.1): runtime table creation stays
+// in db/index.ts's exec block (SKILLS_DDL); this drizzle mirror is schema
+// bookkeeping only (same "mirror + raw prepare" precedent as settings).
+export const skills = sqliteTable('skills', {
+  id: text('id').primaryKey(), name: text('name').notNull(), description: text('description').notNull().default(''), promptTemplate: text('prompt_template').notNull(), origin: text('origin').notNull().default('manual'), ...timestamps
 });
