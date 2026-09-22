@@ -3,10 +3,13 @@ import cron from 'node-cron';
 import type { BrowserWindow } from 'electron';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 import type { Scheduler } from '../scheduler/Scheduler.js';
+import type { SkillsRepo } from '../db/skillsRepo.js';
+import { validateJobInput } from '../scheduler/Scheduler.js';
 import { repo } from '../db/repository.js';
+import { filterContents } from '../agent/appToolDefs.js';
 import { logger } from '../services/logger.js';
 
-export async function startGateway(browser: BrowserKernel, scheduler: Scheduler, mainWindow?: () => BrowserWindow | null) {
+export async function startGateway(browser: BrowserKernel, scheduler: Scheduler, skills: SkillsRepo, mainWindow?: () => BrowserWindow | null) {
   const log = logger.child('gateway');
   const app = Fastify({ logger:false });
   const token=process.env.CREATOROS_GATEWAY_TOKEN ?? 'change-me';
@@ -42,18 +45,30 @@ export async function startGateway(browser: BrowserKernel, scheduler: Scheduler,
     return { dataUrl: image.toDataURL() };
   });
   app.post('/api/jobs/:id/run', async(req)=>{await scheduler.run((req.params as any).id);return {ok:true};});
+  // Read-only four for the external bridge (§13.4 D5): same repo sources as the
+  // SDK tool handlers. The bridge host returns the bare list; the SDK handler
+  // enriches (nextRunAt/skill names) — outputs may differ, definitions are single-sourced.
+  app.get('/api/jobs', async()=>repo.listJobs());
+  app.get('/api/contents', async(req)=>filterContents(repo.listContents(), req.query as any));
+  app.get('/api/accounts', async()=>repo.listAccounts());
+  app.get('/api/skills', async()=>skills.list());
   app.get('/api/logs', async(req)=>{const q=(req.query as any);return {entries:logger.query({level:q?.level,module:q?.module,search:q?.search,since:q?.since?Number(q.since):undefined,limit:q?.limit?Number(q.limit):undefined}),modules:logger.modules()};});
   app.post('/api/logs/clear', async()=>{logger.clear();return {ok:true};});
   app.post('/api/jobs', async(req,reply)=>{
     const b=req.body as {name?:unknown;cron?:unknown;workflowType?:unknown;payload?:Record<string,unknown>|null};
     // Input validation (backend backstop for the Automation form): a job with a
-    // bad shape must never reach the scheduler. cron.validate re-checks on reload.
+    // bad shape must never reach the scheduler. agent.run converges on the D6
+    // gate (§13.5: Scheduler.createJob re-validates as the invariant); legacy
+    // types (browser.navigate/demo) keep the old cron.validate path — the
+    // Gateway may still create legacy types, the tool surface only builds agent.run.
     if (typeof b?.name!=='string'||!b.name.trim()) return badRequest(reply,'name is required');
-    if (typeof b?.cron!=='string'||!cron.validate(b.cron)) return badRequest(reply,'cron is invalid');
     const wf=typeof b?.workflowType==='string'?b.workflowType:'';
     if (!['browser.navigate','demo','agent.run'].includes(wf)) return badRequest(reply,'workflowType must be one of browser.navigate|demo|agent.run');
-    if (wf==='agent.run'&&!(typeof b?.payload?.prompt==='string'&&b.payload.prompt.trim())) return badRequest(reply,'agent.run job requires payload.prompt');
-    const j=scheduler.createJob({name:b.name,cron:b.cron,workflowType:wf,payload:b.payload??{}});reply.code(201);return j;
+    if (wf==='agent.run') {
+      try { validateJobInput({ name:b.name, cron: typeof b?.cron==='string'?b.cron:'', workflowType:wf, payload:b.payload??{} }, skills); }
+      catch(e) { return badRequest(reply,String(e).replace(/^Error: /, '')); }
+    } else if (typeof b?.cron!=='string'||!cron.validate(b.cron)) return badRequest(reply,'cron is invalid');
+    const j=scheduler.createJob({name:b.name,cron:b.cron as string,workflowType:wf,payload:b.payload??{}});reply.code(201);return j;
   });
   app.post('/webhooks/feishu', async(req)=>{
     const body=req.body as any;

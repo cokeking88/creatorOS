@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { drizzle } from 'drizzle-orm/node-sqlite';
 import { browserProfiles, contents, jobs, workspaces, platforms } from './schema.js';
+import { SKILLS_DDL } from './skillsRepo.js';
 import { nanoid } from 'nanoid';
 
 let sqlite: DatabaseSync;
@@ -27,6 +28,9 @@ export function initDatabase() {
     CREATE TABLE IF NOT EXISTS agent_runs (id TEXT PRIMARY KEY, provider TEXT NOT NULL, status TEXT NOT NULL, input_json TEXT NOT NULL, output_json TEXT, started_at INTEGER NOT NULL, finished_at INTEGER, error TEXT);
     CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL);
   `);
+  // v0.5 skills table (agent-capabilities §13.1): same string as vitest —
+  // SKILLS_DDL is the single DDL source, executed idempotently like the 11 above.
+  sqlite.exec(SKILLS_DDL);
   // v0.3: extend agent_runs for the Claude Code engine (idempotent).
   for (const col of [
     ['session_id', 'TEXT'],

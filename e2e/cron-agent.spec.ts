@@ -72,6 +72,25 @@ test('invalid job payloads are rejected with 400 and never reach the scheduler',
   expect(r.status).toBe(400);
   expect(r.json).toMatchObject({ error: expect.stringContaining('name') });
 
+  // agent.run payload referencing a skill that does not exist (AC-S5 gateway
+  // face): the Scheduler gate rejects it before any job is created.
+  r = await gw.post('/api/jobs', { name: 'dangling-skill', cron: '*/5 * * * *', workflowType: 'agent.run', payload: { skillId: 'does-not-exist', prompt: null } });
+  expect(r.status).toBe(400);
+  expect(r.json).toMatchObject({ error: expect.stringContaining('does not exist') });
+
+  // AC-S5 gateway face: prompt AND skillId together violates the mutual
+  // exclusion — the D6 gate is the same one the job_create tool handler uses.
+  r = await gw.post('/api/jobs', { name: 'both-set', cron: '*/5 * * * *', workflowType: 'agent.run', payload: { skillId: 'whatever', prompt: 'both set' } });
+  expect(r.status).toBe(400);
+  expect(r.json).toMatchObject({ error: expect.stringContaining('exactly one') });
+
+  // AC-S5 gateway face: unsupported cron vocabulary (parseCron caliber — D6).
+  // A 6-field seconds expression node-cron would accept must still be refused
+  // so every created job stays previewable in the UI.
+  r = await gw.post('/api/jobs', { name: 'six-field', cron: '*/5 * * * * *', workflowType: 'agent.run', payload: { prompt: 'p' } });
+  expect(r.status).toBe(400);
+  expect(r.json).toMatchObject({ error: expect.stringContaining('标准 5 段') });
+
   // None of the rejected shapes became a job.
   const state = await app.window.evaluate(async () => window.creatorOS.state());
   const names = (state.jobs as Array<{ name: string }>).map((j) => j.name);

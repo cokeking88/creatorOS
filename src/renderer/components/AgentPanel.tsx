@@ -1,5 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import type { AgentStep, AgentRunResult } from '../../shared/types';
+import type { AgentStep, AgentRunResult, SkillRecord } from '../../shared/types';
 import { fmtCost, fmtDur, toolLabel } from '../../shared/format';
 import { Empty } from './Empty';
 import { IcSpinner, IcOk, IcFail, IcWarn, IcAutomation } from './icons';
@@ -72,6 +72,7 @@ export function AgentPanel(){
   const [items,setItems]=useState<Item[]>([]);
   const [sessionId,setSessionId]=useState<string|null>(null);
   const [activeRunId,setActiveRunId]=useState<string|null>(null);
+  const [skills,setSkills]=useState<SkillRecord[]>([]);
   const chatRef=useRef<HTMLDivElement>(null);
 
   /** Derived: the chat run started from this panel is still running (cron runs never block the composer). */
@@ -114,6 +115,10 @@ export function AgentPanel(){
     return ()=>{offStep();offDone();};
   },[]);
 
+  // Skills for the empty-state「运行技能」chips (§12.2): fetch on mount + on every
+  // state change (skill creates/edits/deletes broadcast EVENT_STATE_CHANGED).
+  useEffect(()=>{ const load=()=>{ void window.creatorOS.state().then(s=>setSkills(s.skills)); }; load(); return window.creatorOS.onStateChanged(load); },[]);
+
   async function send(){
     if(!msg.trim()||busy)return;
     const prompt=msg;
@@ -137,7 +142,15 @@ export function AgentPanel(){
     {cronRun&&<div className="cron-banner"><span>定时任务「{cronRun.source.slice('cron:'.length)}」运行中…</span><button className="btn-link" onClick={()=>void window.creatorOS.agent.stop(cronRun.runId)}>停止</button></div>}
     <div className="chat" ref={chatRef}>
       {items.length===0&&<Empty icon={<IcAutomation/>} title="Agent 待命中" hint="内置 Agent 由 Claude Code 驱动，能操作浏览器、读写文件"
-        suggestions={[{label:'检查各账号登录态',onPick:()=>setMsg('检查各账号登录态')},{label:'打开小红书创作中心并截图',onPick:()=>setMsg('打开小红书创作中心并截图')},{label:'列出所有定时任务',onPick:()=>setMsg('列出所有定时任务')}]}/>}
+        suggestGroups={[
+          { items:[
+            {label:'检查各账号登录态',onPick:()=>setMsg('检查各账号登录态')},
+            {label:'打开小红书创作中心并截图',onPick:()=>setMsg('打开小红书创作中心并截图')},
+            {label:'列出所有定时任务',onPick:()=>setMsg('列出所有定时任务')}]},
+          // 运行技能 chips (§2.3 入口 1): template text fills the composer, NEVER auto-sends —
+          // the user reviews and replaces {占位符} first. Only shown while skills exist.
+          ...(skills.length>0?[{label:'运行技能',items:skills.slice(0,3).map(s=>({label:s.name,title:s.description||s.promptTemplate,onPick:()=>setMsg(s.promptTemplate)}))}]:[]),
+        ]}/>}
       {items.map((it,i)=>{
         if(it.kind==='user')return <div key={i} className="bubble user">{it.text}</div>;
         const running=it.status==='running';

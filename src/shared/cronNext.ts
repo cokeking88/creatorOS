@@ -100,3 +100,16 @@ export function nextCronDate(fields: CronFields, from: Date): Date | null {
   }
   return null;
 }
+
+// --- D6 shared gate (agent-capabilities §13.6): the strict parseCron subset is
+// the single cron vocabulary — "runs but cannot be previewed in the UI" is
+// rejected at every job-creation entry point (Scheduler.createJob is the
+// authoritative gate; tool/Gateway layers pre-check for friendly errors).
+
+/** D6 共享口径：建任务必须与 UI 预览互认，「能跑但预览不了」被拒。 */
+export function isSupportedCron(expr: string): boolean { return parseCron(expr) !== null; }
+
+export const CRON_ERROR_HINT = 'cron 表达式必须是标准 5 段形式（分 时 日 月 周，如 0 9 * * *）；不支持 @nickname、L/W/#、星期/月名与 6 段秒。';
+
+/** job_list 的 nextRunAt（null = 无法解析或 366 天内不触发）。 */
+export function nextRunAt(expr: string): number | null { const f = parseCron(expr); if (!f) return null; const d = nextCronDate(f, new Date()); return d ? d.getTime() : null; }

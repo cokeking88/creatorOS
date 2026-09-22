@@ -4,12 +4,16 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "outDir": "dist-tools",
-    "rootDir": "scripts",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["node"],
     "sourceMap": true
   },
-  "include": ["scripts/mcp-stdio.ts"]
+  "include": [
+    "scripts/mcp-stdio.ts",
+    "src/main/mcp/bridgeServer.ts",
+    "src/main/agent/appToolDefs.ts"
+  ]
 }

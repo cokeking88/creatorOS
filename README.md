@@ -1,4 +1,4 @@
-# CreatorOS v0.4
+# CreatorOS v0.5
 
 [中文说明 / 中文版 README](./README_CN.md)
 
@@ -47,11 +47,13 @@ Each tool call shows with a friendly Chinese label (打开页面 / 读取页面 
 - CDP attach escape hatch (`webContents.debugger`)
 - SQLite using Node's built-in `node:sqlite` + Drizzle schema/repository
 - Content draft management
-- Persisted cron jobs + scheduler, including `agent.run` jobs that hand a scheduled prompt to the same agent engine as the chat panel
+- Persisted cron jobs + scheduler, including `agent.run` jobs that hand a scheduled prompt — or a bound **skill** — to the same agent engine as the chat panel
+- **Skills system**: reusable prompt templates (name + description + instruction), created manually in the UI or by the agent itself (agent-created skills are badged for review); run from the agent panel, a Run button, or bound to a cron job by `skillId` reference (template updates propagate; deleting a skill fails its bound jobs loudly)
+- **Full-capability agent tools** (second in-process MCP server `creatoros-app`, 10 tools): list/create/toggle/delete cron jobs, list/create/update content drafts, list accounts, list/create skills — the agent can now operate the whole app, not just the browser; cron validation is unified to the strict `parseCron` caliber across UI/Gateway/tools
 - Local Fastify gateway and Feishu webhook skeleton
 - Claude Code Agent SDK kernel (`@anthropic-ai/claude-agent-sdk`): per-run `claude` CLI subprocess with browser tools served by an in-process SDK MCP server (15 `browser_*` tools bound to BrowserKernel)
 - Live agent step stream: SDK stream messages translated to typed steps (tool start/result with duration, text deltas, done with cost/duration) pushed over IPC to the agent panel
-- MCP v2 stdio bridge to the running app (same browser tool semantics as the internal in-process server)
+- MCP v2 stdio bridge to the running app (15 browser tools + a read-only quartet: job/content/account/skill lists — write and destructive tools are deliberately NOT exposed over the bridge)
 - Hardened preload IPC boundary
 - Technical design DOCX under `docs/`
 

@@ -49,7 +49,7 @@ test('fresh app: dashboard renders stat cards and both run-list empty states', a
     return { empties: [...document.querySelectorAll('.page .empty b')].map((b) => b.textContent), cards: document.querySelectorAll('.page .card').length, h1: document.querySelector('.page h1')!.textContent };
   });
   expect(ui.h1).toBe('工作台');
-  expect(ui.cards).toBe(4);
+  expect(ui.cards).toBe(5); // 5 cards since the v0.5 skills card (agent-capabilities §12.3)
   expect(ui.empties).toContain('还没有 Agent 运行记录');
   expect(ui.empties).toContain('还没有定时任务运行记录');
 });

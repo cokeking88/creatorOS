@@ -24,3 +24,13 @@ export function toolLabel(tool?: string): string {
   const short = tool.replace(/^mcp__creatoros-browser__/, '');
   return TOOL_LABEL[short] ?? short;
 }
+
+/** Compact relative time: 刚刚 / N 分钟前 / N 小时前 / N 天前 (caption-style sub info). §12.4 extraction 3 — moved verbatim from Dashboard.tsx. */
+export function relTime(t: number): string {
+  const diff = Date.now() - t; const m = Math.floor(diff / 60000); if (m < 1) return '刚刚'; if (m < 60) return `${m} 分钟前`; const h = Math.floor(m / 60); if (h < 24) return `${h} 小时前`; return `${Math.floor(h / 24)} 天前`;
+}
+
+/** Absolute timestamp YYYY-MM-DD HH:mm. §12.4 extraction 3 — moved verbatim from ContentPage.tsx. */
+export function fmtUpdate(t: number): string {
+  const d = new Date(t); const pad = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}

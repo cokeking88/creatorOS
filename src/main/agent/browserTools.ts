@@ -2,10 +2,10 @@ import { tool } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 
-/** Truncate large tool outputs before they reach the model context. */
+/** Truncate large tool outputs before they reach the model context. Shared with the app tool surface (§13.2 — no second copy). */
 export const MAX_TOOL_RESULT_CHARS = 18_000;
 
-function out(result: unknown) {
+export function out(result: unknown) {
   const text = JSON.stringify(result);
   return { content: [{ type: 'text' as const, text: text.length > MAX_TOOL_RESULT_CHARS ? text.slice(0, MAX_TOOL_RESULT_CHARS) : text }] };
 }

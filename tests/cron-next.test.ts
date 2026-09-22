@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCron, nextCronDate } from '../src/shared/cronNext.js';
+import { parseCron, nextCronDate, isSupportedCron, nextRunAt, CRON_ERROR_HINT } from '../src/shared/cronNext.js';
 
 /** Parse an expression and find its next fire time after `from` in one step. */
 function next(expr: string, from: Date): Date | null {
@@ -180,5 +180,37 @@ describe('cronNext — node-cron semantic alignment (§7.7 ⑥)', () => {
     const r = next('9-17/2 * * * *', d(2026, 6, 2, 14, 10));
     expect(r?.getHours()).toBe(14);
     expect(r?.getMinutes()).toBe(11);
+  });
+});
+
+describe('cronNext — D6 shared gate (agent-capabilities §13.6: isSupportedCron / nextRunAt)', () => {
+  it('isSupportedCron accepts the standard 5-field subset and rejects everything the UI cannot preview', () => {
+    for (const ok of ['0 9 * * *', '*/15 * * * *', '0 9-17 * * 1', '55-5 * * * *', '0 9 ? * ?']) expect(isSupportedCron(ok)).toBe(true);
+    // the §13.6 hint enumerates exactly these rejected families
+    for (const bad of ['@daily', '0 9 L * *', '0 9 * * 1#2', '0 9 * * MON', '0 9 15W * *', '* * * * * *', 'not a cron', '']) {
+      expect(isSupportedCron(bad)).toBe(false);
+    }
+  });
+  it('CRON_ERROR_HINT is the standard-5-field guidance shown by every rejection mouth', () => {
+    expect(CRON_ERROR_HINT).toContain('标准 5 段');
+    expect(CRON_ERROR_HINT).toContain('0 9 * * *');
+    expect(CRON_ERROR_HINT).toContain('@nickname');
+  });
+  it('nextRunAt returns the epoch ms of the next fire strictly after now for a near-future expression', () => {
+    const ts = nextRunAt('0 9 * * *');
+    expect(typeof ts).toBe('number');
+    const dt = new Date(ts!);
+    expect(dt.getHours()).toBe(9);
+    expect(dt.getMinutes()).toBe(0);
+    expect(ts).toBeGreaterThan(Date.now() - 60_000); // strictly after now
+  });
+  it('nextRunAt is null for unparseable expressions and expressions with no hit inside 366 days', () => {
+    expect(nextRunAt('not a cron')).toBeNull();
+    expect(nextRunAt('* * * * * *')).toBeNull();
+    // Time-robust: Feb 29 is either beyond the 366-day window (null) or a real
+    // upcoming leap-day timestamp — never NaN, never a non-Feb-29 date.
+    const feb29 = nextRunAt('0 9 29 2 *');
+    if (feb29 !== null) { const dt = new Date(feb29); expect(dt.getMonth()).toBe(1); expect(dt.getDate()).toBe(29); expect(dt.getHours()).toBe(9); }
+    expect(nextRunAt('0 9 30 2 *')).toBeNull(); // Feb 30 never exists
   });
 });
