@@ -1,4 +1,4 @@
-# CreatorOS v0.3
+# CreatorOS v0.4
 
 [中文说明 / 中文版 README](./README_CN.md)
 
@@ -18,11 +18,11 @@ The embedded `WebContentsView` renders inside the app window (left); the agent p
 |---|---|
 | ![Agent running](docs/screenshots/agent-steps.png) | ![Agent done](docs/screenshots/agent-done.png) |
 
-Each tool call shows as a `⚙ browser_*` row with its input JSON, its result as a `✓/✗` row with duration, assistant text streams in as a typewriter, and the run ends with a `● done` row carrying cost and wall time. A stop button interrupts mid-run; follow-up messages resume the same session.
+Each tool call shows with a friendly Chinese label (打开页面 / 读取页面 / 点击 …) plus the raw `browser_*` name in its expandable JSON, its result as a ✓/✗ row with duration, assistant text streams in as a typewriter, and the run ends with a cost + wall-time line (sub-cent costs collapse to `<$0.01`). A stop button interrupts mid-run; follow-up messages resume the same session.
 
-**Pages:**
+**Pages (Chinese-first UI, v0.4 redesign):**
 
-| Dashboard | Content |
+| 工作台 Dashboard | 内容 Content |
 |---|---|
 | ![Dashboard](docs/screenshots/dashboard.png) | ![Content](docs/screenshots/content.png) |
 
@@ -90,7 +90,7 @@ ANTHROPIC_API_KEY=...                           # x-api-key header
 ANTHROPIC_MODEL=claude-sonnet-4-5
 ```
 
-Settings-page values win over environment variables. `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY` are alternatives; the token wins when both are set. Use the Settings page "Test connection" button to run a minimal query against the current config.
+Settings-page values win over environment variables. `ANTHROPIC_AUTH_TOKEN` and `ANTHROPIC_API_KEY` are alternatives; the token wins when both are set. Use the Settings page 测试连接 (Test connection) button to run a minimal query against the current config.
 
 ## Local gateway
 

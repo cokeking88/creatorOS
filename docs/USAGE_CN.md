@@ -133,26 +133,24 @@ npm run doctor
 
 ## 4. 界面功能总览
 
-左侧导航栏有 8 个页面，右侧常驻 Agent 面板。
+左侧导航栏有 8 个页面（工作台 / 浏览器 / 账号 / 文件 / 内容 / 自动化 / 日志 / 设置），右侧常驻 Agent 面板。v0.4 起界面以中文为主，专有名词（Profile、cron、Base URL）保留英文。
 
-### 4.1 Dashboard ◫ 仪表盘
+### 4.1 工作台（Dashboard）
 
-一览当前系统状态：
+运营视角的状态总览：
 
-- **Profiles 数量** —— 已创建的持久浏览器身份
-- **Browser tabs 数量** —— 当前打开的内部浏览器标签页
-- **Contents 数量** —— 内容库总数
-- **Active jobs 数量** —— 已启用的定时任务数
+- **4 张统计卡** —— 浏览器身份数（已绑定/总数）、运营账号数（平台数）、草稿数（今日新增）、启用中定时任务（最近一次运行时间）
+- **最近 Agent 运行** —— 最近 10 条（对话与定时任务共用），每条显示指令摘要、来源、相对时间、成本（<$0.01 格式）、耗时、成功/失败
+- **最近定时任务运行** —— 最近 5 条，任务名、状态、相对时间、耗时
+- 空态给出下一步引导；两个列表在每次进入页面时刷新
 
-底部展示系统保证说明（persist session、不启动外部 Chrome 等）。
-
-### 4.2 Browser ◎ 浏览器（核心页面）
+### 4.2 浏览器（核心页面）
 
 这是应用的心脏——真正的嵌入式 Chromium 浏览器。
 
 ```
 ┌────────────────────────────────────────────────────┐
-│ [Profile 选择器▼] [＋P] [←] [→] [↻] [URL输入框] [＋] │  ← 浏览器工具栏
+│ [←][→][↻] [地址栏            ] [＋] [身份▼] [＋ 身份] │  ← 浏览器工具栏
 ├────────────────────────────────────────────────────┤
 │ [Tab 1] [Tab 2] [Tab 3]                    ×      │  ← 标签页栏
 ├────────────────────────────────────────────────────┤
@@ -166,12 +164,12 @@ npm run doctor
 
 | 控件 | 功能 |
 |---|---|
-| Profile 选择器 | 切换浏览器身份。每个 Profile 有独立的 Cookie/登录态，切换后整个浏览器运行时切到该 Profile 的 Session |
-| `＋P` | 新建 Profile（弹窗输入名称），创建后自动激活 |
+| 身份选择器 | 切换浏览器身份。每个 Profile 有独立的 Cookie/登录态，切换后整个浏览器运行时切到该 Profile 的 Session |
+| `＋ 身份` | 新建浏览器身份（行内输入名称，回车创建），创建后自动激活 |
 | `←` / `→` / `↻` | 后退 / 前进 / 刷新当前页 |
-| URL 输入框 | 输入网址回车导航（自动补 `https://`） |
-| `＋` | 在当前 Profile 下新建标签页 |
-| 标签页条 | 点击切换激活标签；`×` 关闭。每个标签页显示实时标题 |
+| 地址栏 | 输入网址回车导航（自动补 `https://`） |
+| `＋` | 在当前身份下新建标签页 |
+| 标签页条 | 点击切换激活标签；`×` 关闭。加载中的标签显示小圆点，完成后显示实时标题 |
 
 **关键行为：**
 
@@ -179,7 +177,7 @@ npm run doctor
 - **OAuth 弹窗不外泄**：页面里 `window.open`（扫码、第三方登录弹窗）会转成内部新标签页，不会弹出外部 Chrome 窗口。
 - **切页面不销毁**：切到 Content / Automation 等页面再切回来，浏览器页面原样保留（View 只是隐藏，不是销毁）。
 
-### 4.3 Accounts ◉ 账号与 Profile 管理
+### 4.3 账号与身份
 
 建立「平台账号 → 浏览器身份」的绑定关系。
 
@@ -188,43 +186,43 @@ npm run doctor
 | 字段 | 说明 |
 |---|---|
 | 平台 | 下拉选择（小红书/抖音/Bilibili/公众号） |
-| Account name | 账号名称，如「心理疗愈号」 |
+| 账号名 | 账号名称，如「心理疗愈号」 |
 | Handle | 账号 handle（可选） |
-| 绑定 Profile | 下拉选择**未被占用**的 Profile；或点 `＋ Profile` 现场新建一个 |
+| 绑定身份 | 下拉选择**未被占用**的身份；或点「＋ 新建身份」现场新建一个 |
 
-右侧「Managed accounts」列出所有账号及其绑定的 Profile（未绑定的显示 `No Profile`）。
+右侧「已有账号」列出所有账号及其绑定的身份（未绑定的显示灰色「未绑定」标签，已绑定为绿色标签）。空状态有引导按钮直达创建动作。
 
 **推荐实践**：一个真实运营身份 → 一个固定 Profile。以后人工操作、Agent、Cron、外部 Claude 全部复用这一个 Profile，绝不需要反复扫码登录。
 
-### 4.4 Content ✎ 内容库
+### 4.4 内容
 
 管理创作内容（草稿→排期→发布）。
 
-**新建草稿：** 选择平台 → 选择该平台下的账号（可不选）→ 填标题 → 填正文 → Save draft。
+**新建草稿：** 选择平台 → 选择该平台下的账号（可不选）→ 填标题 → 填正文 → 保存草稿（保存成功右上角出现提示，新条目在右侧高亮）。
 
-**Library 列表：** 每条内容显示标题、平台、账号、正文前 100 字、状态标签。
+**草稿库：** 每条内容显示标题、平台标签、账号、更新时间、正文摘要、中文状态标签（草稿/灵感/已排期/已发布/已归档）。空状态引导写第一篇。
 
 **内容状态机**（`status` 字段）：`idea → draft → scheduled → published → archived`。v0.1 的 UI 只创建 `draft`；API（`content.update`）支持任意状态流转，为后续「发布队列」预留。
 
-### 4.5 Automation ⌁ 自动化（Cron）
+### 4.5 自动化
 
 创建和管理定时任务。
 
-**创建表单：** 任务名 → Cron 表达式（如 `0 9 * * *` = 每天 9 点）→ 工作流类型 →（按类型）目标 URL 或 Agent prompt → Create。
+**创建表单：** 任务名 → 执行周期（模板下拉：每天 09:00 / 每小时 / 每周一 09:00 / 自定义 cron；实时预览「下次运行：M月d日 HH:mm」，无法预览的表达式有明确提示）→ 工作流类型 →（按类型）目标网址或 Agent 指令 → 创建任务。
 
 当前支持的 workflowType（v0.3 新增 `agent.run`）：
 
 | workflowType | 行为 |
 |---|---|
-| `browser.navigate` | 到点后让内部浏览器导航到指定 URL（UI 创建的默认类型） |
-| `demo` | 演示用，记录一条成功日志 |
-| `agent.run` | **到点后由 Claude Code Agent 执行一段 prompt**（v0.3 新增）。与右侧 Agent 面板聊天走**同一个引擎**（ClaudeAgentService.streamRun），执行步骤实时进入同一事件流（面板顶部出现 `⏱ Cron job <任务名> 运行中…` 横幅），运行结束写入 `job_runs` 与 `agent_runs`。表单选 `agent.run` 后必须填写 prompt，否则 Create 按钮置灰 |
+| `browser.navigate`（定时打开页面） | 到点后让内部浏览器导航到指定网址（UI 创建的默认类型） |
+| `demo`（演示任务） | 演示用，记录一条成功日志 |
+| `agent.run`（执行 Agent 任务） | **到点后由 Claude Code Agent 执行一段指令**（v0.3 新增）。与右侧 Agent 面板聊天走**同一个引擎**（ClaudeAgentService.streamRun），执行步骤实时进入同一事件流（面板顶部出现「定时任务『任务名』运行中…」横幅，可一键停止），运行结束写入 `job_runs` 与 `agent_runs`。表单选 `agent.run` 后必须填写指令，否则创建按钮置灰 |
 
 `agent.run` 适合「每天 9 点打开数据中心看一遍数据并汇报」「每晚巡检登录状态」这类定时 Agent 任务——浏览器登录态、Profile 都与手动操作共享。
 
-**Jobs 列表：** 每条任务显示 cron 表达式和类型（`agent.run` 任务额外显示 prompt 首行），`enabled` 复选框随时开关（立即生效，无需重启）。手动立即触发一个任务可用 API（见 [§8](#8-本地-gateway-http-api)）。每次运行记录到 `job_runs` 表（含状态、输出、错误）；`agent.run` 的输出含 Agent 文本结果、步骤数与 sessionId。
+**定时任务列表：** 每条任务显示 cron 表达式和中文类型（`agent.run` 任务额外显示指令首行），「启用」复选框随时开关（立即生效，无需重启）；**行尾垃圾桶按钮删除任务**（两段式：先点变「确认删除？」，3 秒内再点一次才真删，历史运行记录一并清理）。手动立即触发一个任务可用 API（见 [§8](#8-本地-gateway-http-api)）。每次运行记录到 `job_runs` 表（含状态、输出、错误）；`agent.run` 的输出含 Agent 文本结果、步骤数与 sessionId。
 
-### 4.6 Files ✜ 账号文件管理（v0.3.3 新增）
+### 4.6 文件（v0.3.3 新增）
 
 每个运营账号一个专属本地目录（Obsidian 式「磁盘即真相」，无中央索引）：
 
@@ -247,18 +245,18 @@ npm run doctor
 
 和内置 Agent 对话，见下一节。
 
-### 4.8 Logs ⌗ 日志（v0.2 新增）
+### 4.8 日志（v0.2 新增）
 
 全应用结构化日志的实时查看页：
 
 - **过滤行**：级别下拉（debug/info/warn/error）、模块下拉（app/browser/agent/scheduler/gateway/settings…）、消息搜索框
-- **自动刷新**：默认开启（2s 轮询），可关闭手动 ↻ 刷新
-- **日志表格**：时间（毫秒精度）/ 级别色点 / 模块 / 消息；**点击行展开 meta JSON**（如 navigate 的 URL、Agent 运行的 runId）
-- **Clear**：清空内存 ring buffer（文件日志不受影响）
+- **自动刷新**：默认开启（2s 轮询），可关闭手动刷新
+- **日志表格**：时间（毫秒精度）/ 级别色点 / 模块 / 消息；**行尾「详情」按钮展开 meta JSON**（如 navigate 的 URL、Agent 运行的 runId）
+- **清空**：清空内存 ring buffer（文件日志不受影响）
 
 底层机制：主进程内存 ring buffer（2000 条上限）+ 按日落盘 `logs/creatoros-YYYYMMDD.log`（5MB 滚动 `.old`，7 天自动清理）。级别阈值默认 info，`LOG_LEVEL=debug` 环境变量可放开 debug 级。API 侧同支持 `GET /api/logs?level=&module=&search=`。
 
-### 4.9 Settings ⚙ 设置（v0.3 改造为引擎配置）
+### 4.9 设置（v0.3 改造为引擎配置）
 
 内置 Agent 引擎（Claude Code）的页面化配置，**保存即热生效，无需重启**——下一次 run（聊天或 cron）即用新配置：
 
@@ -269,8 +267,8 @@ npm run doctor
 | **API Key** | 密码框，映射为 `ANTHROPIC_API_KEY`（`x-api-key`）；与 Token 二选一，**同时填时 Token 优先** |
 | **Model** | 模型名，如 `claude-sonnet-4-5`，映射为 `ANTHROPIC_MODEL` |
 
-- **Save**：写入本地 SQLite `settings` 表（key 为 `agent-engine`，明文 JSON，个人本地工具取舍；M5 计划升级 Keychain 加密）
-- **Test connection**：用当前配置真实跑一次最小 query（`Reply with exactly: ok`，30s 超时），成功/失败 + 详情直接显示
+- **保存**：写入本地 SQLite `settings` 表（key 为 `agent-engine`，明文 JSON，个人本地工具取舍；M5 计划升级 Keychain 加密）
+- **测试连接**：用当前配置真实跑一次最小 query（`Reply with exactly: ok`，30s 超时），成功/失败 + 详情直接显示
 - **优先级**：Settings 保存的配置 > 环境变量（.env 作为首次启动默认值）
 - **旧配置迁移**：v0.2 的 `provider` 配置行（mock/anthropic/openai-compatible）启动时自动识别并回落到环境变量默认，不会读到脏配置
 
@@ -311,7 +309,7 @@ Browser Profile（数据库记录）
 
 ### 配置引擎
 
-**推荐方式：Settings 页面配置**——Base URL / Auth Token / API Key / Model 四个字段，Save 即热生效（详见 §4.8），Test connection 可实测连通性。
+**推荐方式：设置页配置**——Base URL / Auth Token / API Key / Model 四个字段，保存即热生效（详见 §4.9），测试连接可实测连通性。
 
 `.env` 环境变量方式作为**首次启动的默认值**（Settings 保存的配置优先于环境变量）：
 
@@ -698,7 +696,7 @@ v0.3 内核没有旧版 JSON 循环的 10 步上限，步数由模型与任务�
 - ✅ **内置 Agent = Claude Code Agent SDK**（v0.3 替换自研 JSON 工具循环）：spawn claude 子进程 + 进程内 MCP server（15 个 browser_* 工具）
 - ✅ **执行步骤实时流式展示**：tool_start ⚙ 转圈 / tool_result ✓✗+耗时 / text 打字机 / done cost+时长，可展开 input/detail JSON，停止按钮，多轮续聊 resume
 - ✅ **Cron `agent.run`**：定时任务与聊天同一引擎、同一步骤事件流（cron 横幅）
-- ✅ Settings 引擎配置（Base URL/Token/Key/Model）热生效 + Test connection + v0.2 旧配置自动迁移
+- ✅ 设置页引擎配置（Base URL/Token/Key/Model）热生效 + 测试连接 + v0.2 旧配置自动迁移
 - ✅ MCP v2 stdio 桥（16 工具，外部 Claude 可操控同一浏览器；与进程内 server 同语义）
 - ✅ 持久化 Cron + 运行记录；内容库（5 状态）；账号 ↔ Profile 绑定管理
 - ✅ 本地 Gateway（22 个端点，含 `POST /api/jobs` 任务创建）+ 飞书回调骨架
