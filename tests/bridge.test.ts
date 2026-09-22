@@ -55,6 +55,26 @@ describe('bridge tool surface (D5: read-only quartet only)', () => {
     }
   });
 
+  it('zod shapes are the SAME instances as APP_TOOL_DEFS (schema single-source, not a hand-copied rewrite)', () => {
+    // bridgeServer wraps def.shape with z.object() — the registered schema's
+    // per-field validators must be the very objects APP_TOOL_DEFS holds. If
+    // someone rewrites the schema by hand in bridgeServer.ts, drift becomes
+    // structurally possible again and this catches it.
+    const tools = registeredTools(buildBridgeServer(async () => ({})));
+    for (const def of APP_TOOL_DEFS) {
+      if (!def.readOnly) continue;
+      const shape = (tools[def.name].inputSchema as { shape: Record<string, unknown> }).shape;
+      expect(Object.keys(shape).sort()).toEqual(Object.keys(def.shape).sort());
+      for (const [key, validator] of Object.entries(def.shape)) {
+        expect(shape[key], `${def.name}.${key}`).toBe(validator);
+      }
+    }
+    // Behavior spot-check through the registered schema (content_list status enum).
+    const statusShape = (tools.content_list.inputSchema as { shape: { status: { safeParse: (v: unknown) => { success: boolean } } } }).shape.status;
+    expect(statusShape.safeParse('draft').success).toBe(true);
+    expect(statusShape.safeParse('nonsense').success).toBe(false);
+  });
+
   it('exactly 4 app tools are registered — the readOnly+httpPath set of APP_TOOL_DEFS', () => {
     const tools = registeredTools(buildBridgeServer(async () => ({})));
     const appDefs = APP_TOOL_DEFS.filter((d) => d.readOnly && d.httpPath);

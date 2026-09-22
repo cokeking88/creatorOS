@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.5.0（2026-09-23）— Agent 全能力 + 技能系统
+
+R0→R4 工作流（spec `docs/specs/agent-capabilities.md`，含 R2 §13.10 工具计数勘误 10 个）：
+
+### Agent 工具面（creatoros-app MCP server）
+- 新挂第二个进程内 SDK MCP server `creatoros-app`：10 个工具 = 只读四件套（job_list/content_list/account_list/skill_list，含 job_list 的 nextRunAt/技能名/摘要增强）+ 写五个（job_create/job_toggle/content_create/content_update/skill_create）+ 高危一个（job_delete，双重 warn 日志门 + 系统提示词约束）
+- 工具定义单源 `appToolDefs.ts`：SDK 宿主、外部桥、vitest 三处共用，名字/description/zod schema 结构性不可漂移
+- 围栏常量化 `agentPolicy.ts`：allowedTools 显式列举两 server 通配 + 文件五件套、DISALLOWED_TOOLS（Bash/NotebookEdit）、PreToolUse matcher 扩 app 段、SYSTEM_APPEND 新增两条（定时任务复述纪律 + 技能模板禁止网页原文）——改围栏 = 改这个文件，vitest 断言常量
+- cron 校验三口收敛（D6）：统一取严（parseCron 口径），权威闸门落 `Scheduler.validateJobInput` 单点——Agent 建的任务永远能在自动化页预览
+- job 创建经路三口收敛（§13.8）：IPC/Gateway/MCP 工具全走 Scheduler 实例方法，reload 不再可能被遗漏
+
+### 技能系统
+- `skills` 表（第 12 张，origin manual/agent 调用层硬编码）+ 注入句柄 SkillsRepo（vitest 可测形态）
+- 技能页（侧栏第 9 项）：新建/编辑双态表单、运行（走既有 agent.run，与 chat 同引擎）、两段式删除（绑定计数提示不拦截）、内联绑定 cron 表单（共享 cronPreview 三态文案）
+- Agent 面板空态「运行技能」chips：模板文本填入 composer 不自动发送（占位符用户替换后再发送）
+- cron 绑定引用语义（§2.4 方案 A）：payload 存 skillId——改模板任务行为跟随；删技能任务显式失败（「绑定的技能已被删除，请重新配置或删除该任务」），任务行不级联删并显「技能已删除」警示 pill
+- 自动化页「写指令/选技能」radio-segmented 二选一
+- Dashboard 第 5 卡（技能数 + 最近更新相对时间）
+- 外部桥进只读四件套（D5）：Gateway 新增 4 个 GET（/api/jobs|/api/contents|/api/accounts|/api/skills），写/高危不进桥
+
+### 工程与测试
+- vitest **146→149**（14 files：skills-repo、app-tools 10 工具直测、bridge 20 工具单源断言、cron-preview 三态、policy 常量锚定）
+- playwright **48→52**（12 specs：skills-page 6、skill-cron 3、gateway-quartet 2 新 spec、cron-agent gateway 400 组增补）
+- 文档：SECURITY.md #9 重写 + #13 新增、MCP.md 桥面清单、DATABASE.md skills 表、测试报告 `docs/specs/agent-capabilities-test-report.md`
+- 零新增 npm 依赖；fake 模式盲区（真工具链路）手测清单见测试报告
+
 ## 0.4.0（2026-09-22）— 全站 UI/UX 重设计
 
 按 R0→R5 工作流完成的界面重做（审计 46 有效项全部处置，其中 B1 经实证撤销）：

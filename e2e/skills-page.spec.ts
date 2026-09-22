@@ -205,6 +205,12 @@ test('deleting a skill that a job references shows the bound-count hint (warn, n
 });
 
 test('AgentPanel empty-state skill chip fills the composer WITHOUT sending', async () => {
+  // ORDER CONTRACT (worker-restart safe, but order-sensitive within this spec):
+  // this test asserts an EMPTY panel (afterItems===0, Empty rendered) — every
+  // test above it must leave the AgentPanel run-free, and every run-creating
+  // test (运行 button, below) must stay BELOW it. Self-sufficiency is not
+  // affected: beforeAll re-runs on worker restart and each test seeds its own
+  // skills; only panel state is order-coupled.
   // A fresh panel (no items) + at least one skill -> 「运行技能」 group renders.
   await app.window.evaluate(async () => {
     await window.creatorOS.skills.create({ name: 'e2e-chip-skill', description: 'chips 填入不发送', promptTemplate: '打开 {账号} 的创作中心，检查登录态并截图' });
@@ -219,7 +225,6 @@ test('AgentPanel empty-state skill chip fills the composer WITHOUT sending', asy
       await sleep(100);
     }
     if (!chip) return { found: false };
-    const beforeItems = document.querySelectorAll('.agent .step-group').length;
     chip!.click();
     await sleep(100);
     const composer = document.querySelector<HTMLTextAreaElement>('.composer textarea')!;
@@ -235,4 +240,89 @@ test('AgentPanel empty-state skill chip fills the composer WITHOUT sending', asy
   // NOT sent: no run item appeared (§2.3 入口 1 — chips fill the draft, never auto-send).
   expect((ui as { afterItems: number }).afterItems).toBe(0);
   expect((ui as { groupLabel: string[] }).groupLabel).toContain('运行技能');
+});
+
+test('运行 button triggers agent.run: the template becomes a real run in the AgentPanel (§2.3 入口 2)', async () => {
+  // Self-contained: create the skill through the IPC face, then use the page's
+  // 运行 button and wait for the run's terminal event — the same event-driven
+  // RunItem mechanism cron runs use. §12.5 #14's assertion anchor: onAgentDone
+  // collect + the RunItem appearing (a skill-triggered run creates no user
+  // bubble — the panel auto-creates the RunItem from the first step event).
+  const created = await app.window.evaluate(async () => {
+    const s = await window.creatorOS.skills.create({ name: 'e2e-run-skill', description: '', promptTemplate: '打开工作台并检查登录态' });
+    return s.promptTemplate;
+  });
+  expect(created).toBe('打开工作台并检查登录态');
+
+  await openSkillsPage();
+  const run = await app.window.evaluate(async (): Promise<{ done: boolean; ok: boolean; runItems: number; toast: string | null }> => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    // Subscribe BEFORE clicking so the terminal event cannot race the poll.
+    const dones: Array<{ ok: boolean }> = [];
+    const offDone = window.creatorOS.onAgentDone((r) => dones.push(r));
+    try {
+      const item = [...document.querySelectorAll('.skill-item')].find((it) => it.querySelector('b')?.textContent === 'e2e-run-skill')!;
+      const btn = [...(item.querySelectorAll('.skill-item-actions button') ?? [])].find((b) => b.textContent === '运行') as HTMLButtonElement;
+      // The skills page keeps one shared toast; earlier tests in this spec may
+      // have left one alive (3s lifetime). Wait for it to clear, then click.
+      for (let i = 0; i < 100 && document.querySelector('.toast'); i++) await sleep(50);
+      btn.click();
+      // The toast renders after the fire-and-forget IPC resolves and lives 3s;
+      // capture it while polling for the terminal done event.
+      let toast: string | null = null;
+      const deadline = Date.now() + 15_000;
+      while (dones.length === 0 && Date.now() < deadline) {
+        toast = toast ?? document.querySelector('.toast')?.textContent ?? null;
+        await sleep(50);
+      }
+      toast = toast ?? document.querySelector('.toast')?.textContent ?? null;
+      return {
+        done: dones.length > 0,
+        ok: dones[0]?.ok ?? false,
+        runItems: document.querySelectorAll('.agent .step-group').length,
+        toast,
+      };
+    } finally { offDone(); }
+  });
+  expect(run.done).toBe(true);
+  expect(run.ok).toBe(true);
+  expect(run.runItems).toBe(1);
+  expect(run.toast).toBe('已触发运行，到 Agent 面板查看');
+});
+
+test('origin=agent skill renders the 「Agent 创建」 pill (§12.5 #12; manual-side negative is asserted in the form test)', async () => {
+  // Fake mode cannot produce origin='agent' through any IPC/tool face (both
+  // hardcode their side). §12.6 test path: direct DB UPDATE from the spec
+  // process (WAL allows multi-process), then an IPC write to fire the
+  // EVENT_STATE_CHANGED broadcast — App only refetches state on that event,
+  // so the raw UPDATE alone would never repaint.
+  await app.window.evaluate(async () => {
+    await window.creatorOS.skills.create({ name: 'e2e-agent-origin', description: '来自 Agent', promptTemplate: '巡检' });
+  });
+
+  const db = new DatabaseSync(join(app.userData, 'data', 'creatoros.sqlite'));
+  try {
+    db.prepare("UPDATE skills SET origin = 'agent' WHERE name = 'e2e-agent-origin'").run();
+  } finally { db.close(); }
+
+  // Benign IPC write -> changed() broadcast -> App refetch picks up the row.
+  await app.window.evaluate(async () => {
+    await window.creatorOS.skills.create({ name: 'e2e-origin-refresh-trigger', description: '', promptTemplate: 'x' });
+  });
+
+  const pill = await app.window.evaluate(async () => {
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const byText = (sel: string, text: string) =>
+      [...document.querySelectorAll<HTMLElement>(sel)].find((b) => b.textContent!.includes(text));
+    byText('.sidebar button', '技能')!.click();
+    for (let i = 0; i < 50 && document.querySelector('.page h1')?.textContent !== '技能'; i++) await sleep(50);
+    for (let i = 0; i < 100; i++) {
+      const item = [...document.querySelectorAll('.skill-item')].find((it) => it.querySelector('b')?.textContent === 'e2e-agent-origin');
+      const pill = item?.querySelector('.pill.info')?.textContent ?? null;
+      if (pill) return pill;
+      await sleep(50);
+    }
+    return null;
+  });
+  expect(pill).toBe('Agent 创建');
 });
