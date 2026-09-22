@@ -1,7 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { db } from './index.js';
-import { accounts, browserProfiles, contents, jobs, platforms } from './schema.js';
+import { accounts, browserProfiles, contents, jobRuns, jobs, platforms } from './schema.js';
 import type { AccountRecord, BrowserProfile, ContentItem, JobRecord, PlatformRecord } from '../../shared/types.js';
 
 export const repo = {
@@ -42,5 +42,7 @@ export const repo = {
     return { id, name: input.name, cron: input.cron, enabled: true, workflowType: input.workflowType, payload: input.payload ?? {}, createdAt: now, updatedAt: now };
   },
   toggleJob(id: string, enabled: boolean) { db.update(jobs).set({ enabled, updatedAt: Date.now() }).where(eq(jobs.id, id)).run(); },
+  /** No FK/cascade between jobs and job_runs (schema.ts) — delete runs first, then the job. Idempotent on missing id. */
+  deleteJob(id: string) { db.delete(jobRuns).where(eq(jobRuns.jobId, id)).run(); db.delete(jobs).where(eq(jobs.id, id)).run(); },
   markJobRun(id: string) { db.update(jobs).set({ lastRunAt: Date.now(), updatedAt: Date.now() }).where(eq(jobs.id, id)).run(); }
 };

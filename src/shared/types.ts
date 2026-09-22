@@ -115,6 +115,35 @@ export type AgentRunResult = {
   source?: string;
 };
 
+/** Dashboard「最近 Agent 运行」行（agent_runs 只读投影, §7.2）。 */
+export type AgentRunSummary = {
+  id: string;
+  status: string;
+  /** 'chat' | 'cron:<jobName>';损坏 input_json 降级为 'chat' */
+  source: string;
+  prompt: string;
+  ok: boolean;
+  costUsd: number | null;
+  durationMs: number | null;
+  startedAt: number;
+  finishedAt: number | null;
+};
+
+/** Dashboard「最近定时任务运行」行（job_runs LEFT JOIN jobs 只读投影, §7.2）。 */
+export type JobRunSummary = {
+  id: string;
+  jobId: string;
+  /** job 已删除时为 '(已删除)' */
+  jobName: string;
+  status: string;
+  startedAt: number;
+  finishedAt: number | null;
+  error: string | null;
+};
+
+/** agent:runs.list IPC 返回形状（Dashboard 挂载自取, 切页重挂载天然刷新）。 */
+export type AgentRunsOverview = { agentRuns: AgentRunSummary[]; jobRuns: JobRunSummary[] };
+
 export type AppState = {
   platforms: PlatformRecord[];
   accounts: AccountRecord[];

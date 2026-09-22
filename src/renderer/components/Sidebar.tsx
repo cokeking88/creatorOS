@@ -1,3 +1,5 @@
 import React from 'react';
+import { BrandMark, IcDashboard, IcBrowser, IcAccounts, IcFiles, IcContent, IcAutomation, IcLogs, IcSettings } from './icons';
 export type Page='dashboard'|'browser'|'accounts'|'files'|'content'|'automation'|'logs'|'settings';
-export function Sidebar({page,setPage}:{page:Page;setPage:(p:Page)=>void}) { const items:[Page,string,string][]=[['dashboard','◫','Dashboard'],['browser','◎','Browser'],['accounts','◉','Accounts'],['files','✜','Files'],['content','✎','Content'],['automation','⌁','Automation'],['logs','⌗','Logs'],['settings','⚙','Settings']]; return <aside className="sidebar"><div className="brand">C<span>OS</span></div>{items.map(([k,i,l])=><button key={k} className={page===k?'active':''} onClick={()=>setPage(k)}><b>{i}</b>{l}</button>)}</aside>; }
+const items:[Page,()=>React.ReactNode,string][]=[['dashboard',IcDashboard,'工作台'],['browser',IcBrowser,'浏览器'],['accounts',IcAccounts,'账号'],['files',IcFiles,'文件'],['content',IcContent,'内容'],['automation',IcAutomation,'自动化'],['logs',IcLogs,'日志'],['settings',IcSettings,'设置']];
+export function Sidebar({page,setPage}:{page:Page;setPage:(p:Page)=>void}) { return <aside className="sidebar"><div className="brand"><BrandMark/><span>CreatorOS</span></div>{items.map(([k,Ic,l])=><button key={k} className={page===k?'active':''} onClick={()=>setPage(k)}><b><Ic/></b>{l}</button>)}</aside>; }

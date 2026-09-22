@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import type { LogEntry, LogLevel } from '../../shared/types';
+import { IcReload, IcChevronRight, IcChevronDown } from '../components/icons';
 
 const LEVELS: LogLevel[] = ['debug', 'info', 'warn', 'error'];
 
@@ -37,7 +38,8 @@ export function LogsPage() {
   }, [auto, refresh]);
 
   return <div className="page logs-page">
-    <h1>Logs</h1>
+    <h1>日志</h1>
+    <p className="muted">应用与 Agent 的运行记录，2 秒自动刷新。</p>
     <div className="logs-toolbar">
       <select className="field" value={level} onChange={(e) => setLevel(e.target.value)}>
         <option value="">全部级别</option>
@@ -49,8 +51,8 @@ export function LogsPage() {
       </select>
       <input className="field" placeholder="搜索消息…" value={search} onChange={(e) => setSearch(e.target.value)} />
       <label><input type="checkbox" checked={auto} onChange={(e) => setAuto(e.target.checked)} /> 自动刷新(2s)</label>
-      <button onClick={refresh}>↻</button>
-      <button onClick={() => { void window.creatorOS.logs.clear().then(refresh); }}>Clear</button>
+      <button className="btn-ghost" aria-label="刷新" title="刷新" onClick={refresh}><IcReload/></button>
+      <button className="btn-ghost" onClick={() => { void window.creatorOS.logs.clear().then(refresh); }}>清空</button>
     </div>
     <div className="logs-table">
       <table>
@@ -64,7 +66,12 @@ export function LogsPage() {
               <td><code>{e.module}</code></td>
               <td>
                 {e.message}
-                {e.meta !== undefined && <div className="logs-meta">{expanded === e.seq ? JSON.stringify(e.meta, null, 2) : `{ + }`}</div>}
+                {e.meta !== undefined && <div className="logs-meta">
+                  {expanded === e.seq && JSON.stringify(e.meta, null, 2)}
+                  <button className="btn-link" aria-label={expanded === e.seq ? '收起' : '详情'} onClick={(ev) => { ev.stopPropagation(); setExpanded(expanded === e.seq ? null : e.seq); }}>
+                    {expanded === e.seq ? <><IcChevronDown/>收起</> : <><IcChevronRight/>详情</>}
+                  </button>
+                </div>}
               </td>
             </tr>
           ))}
