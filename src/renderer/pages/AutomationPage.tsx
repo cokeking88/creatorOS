@@ -1,36 +1,12 @@
 import React,{useState} from 'react';
-import type { AppState, JobRecord } from '../../shared/types';
-import { parseCron, nextCronDate } from '../../shared/cronNext';
-import { IcTrash } from '../components/icons';
+import type { AppState } from '../../shared/types';
+import { parseCron } from '../../shared/cronNext';
+import { CRON_TEMPLATES, cronPreview } from '../../shared/cronPreview';
+import { ConfirmButton } from '../components/ConfirmButton';
 
 const WORKFLOW_LABEL: Record<string, string> = { 'browser.navigate':'定时打开页面', 'agent.run':'执行 Agent 任务', 'demo':'演示任务' };
-/** 模板下拉的 value 直接是可提交的 cron；__custom 保留用户手输。 */
-const CRON_TEMPLATES = [
-  { value: '0 9 * * *', label: '每天 09:00' },
-  { value: '0 * * * *', label: '每小时' },
-  { value: '0 9 * * 1', label: '每周一 09:00' },
-] as const;
-
-/** 下次运行预览：M月d日 HH:mm（本地时区）；无法解析/366 天内不触发各有专属文案。 */
-function cronPreview(expr:string):string|null {
-  const f=parseCron(expr);
-  if(!f)return null;
-  return (()=>{ const n=nextCronDate(f,new Date()); if(!n)return null; const d=new Date(n); return `下次运行：${d.getMonth()+1}月${d.getDate()}日 ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })();
-}
-
-/** 两段式删除确认：第一次点变「确认删除？」3s 恢复，第二次才执行 jobs.delete。 */
-function DeleteJobButton({job,refresh}:{job:JobRecord;refresh:()=>void}) {
-  const [confirming,setConfirming]=useState(false);
-  const [timer,setTimer]=useState<ReturnType<typeof setTimeout>|null>(null);
-  const click=async()=>{
-    if(!confirming){ setConfirming(true); setTimer(setTimeout(()=>setConfirming(false),3000)); return; }
-    if(timer)clearTimeout(timer);
-    setConfirming(false);
-    await window.creatorOS.jobs.delete(job.id);
-    refresh();
-  };
-  return <button className="btn-danger" aria-label={`删除任务 ${job.name}`} title={`删除任务 ${job.name}`} onClick={click}>{confirming?'确认删除？':<IcTrash/>}</button>;
-}
+/** §12.3: bound-skill dangling pill copy is the same text the Scheduler writes to job_runs.error (§12.5 #25). */
+const DANGLING_SKILL_TITLE = '绑定的技能已被删除，请重新配置或删除该任务';
 
 export function AutomationPage({state,refresh}:{state:AppState|null;refresh:()=>void}){
   const[name,setName]=useState('Open dashboard');
@@ -38,14 +14,26 @@ export function AutomationPage({state,refresh}:{state:AppState|null;refresh:()=>
   const[workflowType,setWorkflowType]=useState<'browser.navigate'|'demo'|'agent.run'>('browser.navigate');
   const[url,setUrl]=useState('https://www.google.com');
   const[prompt,setPrompt]=useState('');
-  const promptMissing=workflowType==='agent.run'&&!prompt.trim();
+  const[useSkill,setUseSkill]=useState(false);
+  const[skillId,setSkillId]=useState('');
+  const[createErr,setCreateErr]=useState<string|null>(null);
+  const skills=state?.skills??[];
+  const boundSkill=skills.find(s=>s.id===skillId)??null;
+  // promptMissing logic generalized to contentMissing (§12.3): whichever mode is
+  // active must have its content; both branches share the same disabled+hint gate.
+  const contentMissing=workflowType==='agent.run'&&(useSkill?!boundSkill:!prompt.trim());
   const templateValue=CRON_TEMPLATES.some(t=>t.value===cron)?cron:'__custom';
   const preview=cronPreview(cron);
+  const cronInvalid=!parseCron(cron);
   async function create(){
-    if(promptMissing)return;
-    const payload = workflowType==='browser.navigate' ? {url} : workflowType==='agent.run' ? {prompt} : {};
-    await window.creatorOS.jobs.create({name,cron,workflowType,payload});
-    refresh();
+    if(contentMissing||cronInvalid)return;
+    setCreateErr(null);
+    // §2.4 payload shape: both keys persisted, exactly one non-null (skillId reference semantics).
+    const payload = workflowType==='browser.navigate' ? {url} : workflowType==='agent.run' ? (useSkill?{skillId:boundSkill!.id,prompt:null}:{prompt,skillId:null}) : {};
+    try{
+      await window.creatorOS.jobs.create({name,cron,workflowType,payload});
+      refresh();
+    }catch(e){ setCreateErr(`创建失败：${String(e).replace(/^Error: /,'')}`); }
   }
   return <div className="page"><h1>自动化</h1><p className="muted">用 cron 定时执行打开页面或 Agent 任务。</p><div className="content-grid">
     <section className="panel"><h2>新建定时任务</h2>
@@ -66,10 +54,33 @@ export function AutomationPage({state,refresh}:{state:AppState|null;refresh:()=>
         <option value="demo">演示任务</option>
       </select>
       {workflowType==='browser.navigate' && <input className="field" placeholder="目标网址" value={url} onChange={e=>setUrl(e.target.value)}/>}
-      {workflowType==='agent.run' && <textarea className="field" rows={12} placeholder="Agent 指令，如：打开小红书创作中心，检查登录状态并汇报" value={prompt} onChange={e=>setPrompt(e.target.value)}/>}
-      {promptMissing && <p className="muted" style={{margin:'0 0 8px'}}>执行 Agent 任务需要填写指令</p>}
-      <button className="btn-primary" disabled={promptMissing} onClick={create}>创建任务</button>
+      {workflowType==='agent.run' && <>
+        <div className="seg" role="radiogroup" aria-label="任务内容来源">
+          <button type="button" className={`seg-opt${!useSkill?' active':''}`} role="radio" aria-checked={!useSkill} onClick={()=>setUseSkill(false)}>写指令</button>
+          <button type="button" className={`seg-opt${useSkill?' active':''}`} role="radio" aria-checked={useSkill} onClick={()=>setUseSkill(true)}>选技能</button>
+        </div>
+        {!useSkill
+          ? <textarea className="field" rows={12} placeholder="Agent 指令，如：打开小红书创作中心，检查登录状态并汇报" value={prompt} onChange={e=>setPrompt(e.target.value)}/>
+          : <>
+              <select className="field" aria-label="选择技能" value={skillId} onChange={e=>setSkillId(e.target.value)}>
+                <option value="">选择一个技能…</option>
+                {skills.map(s=><option key={s.id} value={s.id}>{s.name}{s.description?` — ${s.description}`:''}</option>)}
+              </select>
+              {boundSkill?.origin==='agent' && <p className="help">该技能由 Agent 生成，请先确认模板内容</p>}
+              {!skills.length && <p className="help">还没有技能，去「技能」页创建或对话里让 Agent 沉淀</p>}
+            </>}
+        {contentMissing && <p className="muted" style={{margin:'0 0 8px'}}>{useSkill?'请选择一个技能':'执行 Agent 任务需要填写指令'}</p>}
+      </>}
+      <button className="btn-primary" disabled={contentMissing||cronInvalid} onClick={()=>void create()}>创建任务</button>
+      {createErr&&<p className="err-msg">{createErr}</p>}
     </section>
-    <section className="panel"><h2>定时任务</h2>{state?.jobs.map(j=><article className="content-item" key={j.id}><div><b>{j.name}</b><p><code>{j.cron}</code> · {WORKFLOW_LABEL[j.workflowType]??j.workflowType}</p>{j.workflowType==='agent.run' && <p className="muted">{String(j.payload.prompt??'').split('\n')[0].slice(0,80)}</p>}</div><div className="row"><label><input type="checkbox" checked={j.enabled} onChange={e=>window.creatorOS.jobs.toggle(j.id,e.target.checked).then(refresh)}/> 启用</label><DeleteJobButton job={j} refresh={refresh}/></div></article>)}</section>
+    <section className="panel"><h2>定时任务</h2>{state?.jobs.map(j=>{
+      const p=j.payload as {prompt?:unknown;skillId?:unknown};
+      const bound=typeof p.skillId==='string'&&p.skillId?state.skills.find(s=>s.id===p.skillId)??null:null;
+      const dangling=typeof p.skillId==='string'&&p.skillId&&!bound;
+      return <article className="content-item" key={j.id}><div><b>{j.name}</b><p><code>{j.cron}</code> · {WORKFLOW_LABEL[j.workflowType]??j.workflowType}</p>{j.workflowType==='agent.run'&&(dangling
+        ? <span className="pill warn" title={DANGLING_SKILL_TITLE}>技能已删除</span>
+        : bound ? <p className="muted">技能：{bound.name}</p> : <p className="muted">{String(p.prompt??'').split('\n')[0].slice(0,80)}</p>)}</div><div className="row"><label><input type="checkbox" checked={j.enabled} onChange={e=>window.creatorOS.jobs.toggle(j.id,e.target.checked).then(refresh)}/> 启用</label><ConfirmButton kindLabel={`任务 ${j.name}`} onConfirm={()=>{ void window.creatorOS.jobs.delete(j.id).then(refresh); }}/></div></article>;
+    })}</section>
   </div></div>;
 }

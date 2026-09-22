@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fmtCost, fmtDur, toolLabel, TOOL_LABEL } from '../src/shared/format.js';
+import { fmtCost, fmtDur, toolLabel, TOOL_LABEL, relTime, fmtUpdate } from '../src/shared/format.js';
 
 describe('fmtCost (§2.7 AP3)', () => {
   it('collapses sub-cent costs to <$0.01', () => {
@@ -53,5 +53,42 @@ describe('toolLabel (§2.7 AP1)', () => {
     const browser = Object.keys(TOOL_LABEL).filter(k => k.startsWith('browser_'));
     expect(browser.length).toBe(15);
     expect(Object.keys(TOOL_LABEL).length).toBe(20);
+  });
+});
+
+/** §12.4 extraction 3: relTime/fmtUpdate moved verbatim from Dashboard.tsx / ContentPage.tsx. */
+describe('relTime (§12.4)', () => {
+  it('sub-minute -> 刚刚', () => {
+    expect(relTime(Date.now())).toBe('刚刚');
+    expect(relTime(Date.now() - 30_000)).toBe('刚刚');
+  });
+  it('59s boundary stays 刚刚; 60s flips to N 分钟前', () => {
+    expect(relTime(Date.now() - 59_000)).toBe('刚刚');
+    expect(relTime(Date.now() - 60_000)).toBe('1 分钟前');
+    expect(relTime(Date.now() - 119_000)).toBe('1 分钟前');
+  });
+  it('minutes / hours / days buckets', () => {
+    expect(relTime(Date.now() - 5 * 60_000)).toBe('5 分钟前');
+    expect(relTime(Date.now() - 59 * 60_000)).toBe('59 分钟前');
+    expect(relTime(Date.now() - 60 * 60_000)).toBe('1 小时前');
+    expect(relTime(Date.now() - 23 * 3_600_000)).toBe('23 小时前');
+    expect(relTime(Date.now() - 24 * 3_600_000)).toBe('1 天前');
+    expect(relTime(Date.now() - 3 * 86_400_000)).toBe('3 天前');
+  });
+});
+
+describe('fmtUpdate (§12.4)', () => {
+  it('formats a fixed timestamp as YYYY-MM-DD HH:mm with zero padding', () => {
+    // Local timezone: construct the date the same way fmtUpdate reads it back.
+    const d = new Date(2026, 0, 5, 9, 7, 0, 0); // 2026-01-05 09:07 local
+    expect(fmtUpdate(d.getTime())).toBe('2026-01-05 09:07');
+  });
+  it('pads single-digit month/day/hour/minute', () => {
+    const d = new Date(2026, 10, 1, 3, 2, 0, 0); // 2026-11-01 03:02 local
+    expect(fmtUpdate(d.getTime())).toBe('2026-11-01 03:02');
+  });
+  it('double-digit values pass through unpadded', () => {
+    const d = new Date(2026, 11, 25, 14, 30, 0, 0);
+    expect(fmtUpdate(d.getTime())).toBe('2026-12-25 14:30');
   });
 });

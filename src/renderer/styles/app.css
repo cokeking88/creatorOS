@@ -16,17 +16,21 @@ button{font:inherit;font-size:13px;height:var(--btn-h);padding:0 14px;border-rad
 .page{height:100%;padding:24px;overflow:auto;display:flex;flex-direction:column;gap:24px}.page h1{margin:0;font-size:28px;font-weight:600}.panel h2{margin:0 0 12px;font-size:20px;font-weight:600}.panel h3{margin:16px 0 8px;font-size:16px;font-weight:600;color:var(--text)}p,.bubble{font-size:13px}.muted{color:var(--text-2)}.muted small{font-size:11px}
 .panel,.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius-l);padding:16px;box-shadow:0 1px 0 rgba(0,0,0,.25),0 8px 24px rgba(0,0,0,.18)}.card strong{display:block;font-size:32px}.card span{color:var(--text-2);font-size:13px}
 .content-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:16px;margin:0;flex:1;min-height:0}.content-grid>.panel{overflow:auto;min-height:0}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+/* §12.3: auto-fit so the 5 cards stay on ONE row in the real main area. Measured:
+   cards container = 978px at the 1440x900 default (1440 − 84 sidebar − 330 panel − 48 page padding),
+   so the spec's 200px floor wraps to 4+1 there; 182px floor keeps five on one row
+   (5×182+4×16=974 ≤ 978) and still collapses on narrower windows. */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(182px,1fr));gap:16px}
 /* fields (§2.2 G1) */
 .field{width:100%;margin:0 0 12px;padding:8px 12px;background:var(--bg-0);border:1px solid var(--border-strong);color:var(--text);border-radius:var(--radius-s)}.field:focus-visible{outline:2px solid var(--accent-text);outline-offset:-1px}.field::placeholder{color:var(--text-3)}textarea.field{padding:10px 12px;line-height:1.5}
 .row{display:flex;gap:8px;align-items:start}.row .field{flex:1}.field-label{display:block;margin:-2px 0 4px;color:var(--text-2);font-size:13px}.cron-preview{margin:-4px 0 12px;color:var(--text-3);font-size:12px}
 /* pill (§2.5) */
-.pill{height:max-content;padding:2px 10px;background:var(--hover);color:var(--text-2);border-radius:999px;font-size:11px}.pill.ok{background:color-mix(in srgb,var(--ok) 15%,var(--bg-2));color:var(--ok)}.pill.warn{background:color-mix(in srgb,var(--warn) 15%,var(--bg-2));color:var(--warn)}
+.pill{height:max-content;padding:2px 10px;background:var(--hover);color:var(--text-2);border-radius:999px;font-size:11px}.pill.ok{background:color-mix(in srgb,var(--ok) 15%,var(--bg-2));color:var(--ok)}.pill.warn{background:color-mix(in srgb,var(--warn) 15%,var(--bg-2));color:var(--warn)}.pill.info{background:color-mix(in srgb,var(--info) 15%,var(--bg-2));color:var(--info)}
 .content-item{display:flex;justify-content:space-between;gap:10px;padding:13px 0;border-bottom:1px solid var(--border);align-items:center}.content-item p{margin:4px 0;color:var(--text-2);font-size:13px}.content-item.flash{outline:1px solid var(--accent-text)}
 /* empty state (§2.4) */
-.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:48px 24px;text-align:center;color:var(--text-2);min-height:200px}.empty svg{color:var(--text-3)}.empty b{color:var(--text);font-size:14px;font-weight:600}.empty .btn-primary{margin-top:8px}.empty-suggest{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:48px 24px;text-align:center;color:var(--text-2);min-height:200px}.empty svg{color:var(--text-3)}.empty b{color:var(--text);font-size:14px;font-weight:600}.empty .btn-primary{margin-top:8px}.empty-suggest{display:flex;flex-direction:column;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}.empty-suggest-group{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}.empty-suggest-label{font-size:11px;color:var(--text-3);align-self:center}
 /* toast (§2.9) */
-.toast{position:fixed;top:16px;right:16px;z-index:50;background:var(--bg-2);border:1px solid var(--ok);color:var(--ok);border-radius:var(--radius-s);padding:8px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toast-in 120ms ease}@keyframes toast-in{from{opacity:0;transform:translateY(-4px)}}
+.toast{position:fixed;top:16px;right:16px;z-index:50;background:var(--bg-2);border:1px solid var(--ok);color:var(--ok);border-radius:var(--radius-s);padding:8px 14px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:toast-in 120ms ease}.toast.error{border-color:var(--err);color:var(--err)}@keyframes toast-in{from{opacity:0;transform:translateY(-4px)}}
 /* browser page (§3.2) */
 .browser-page{height:100%;display:grid;grid-template-rows:48px 38px 1fr}.browser-top{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:1px solid var(--border);background:var(--bg-1)}.browser-top button,.browser-top select{background:var(--hover);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-s);height:32px}.browser-top form{flex:1}.browser-top input{width:100%;height:32px;background:var(--bg-0);border:1px solid var(--border-strong);border-radius:var(--radius-s);color:var(--text);padding:0 10px}.browser-top input:focus-visible{outline:2px solid var(--accent-text);outline-offset:-1px}.browser-top input::placeholder{color:var(--text-3)}
 .browser-top-input{width:170px;height:32px;background:var(--bg-0);border:1px solid var(--border-strong);border-radius:var(--radius-s);color:var(--text);padding:0 10px}.browser-top-input:focus-visible{outline:2px solid var(--accent-text);outline-offset:-1px}.browser-top-input::placeholder{color:var(--text-3)}
@@ -54,4 +58,8 @@ code{color:var(--accent-text)}
 .link-btn{border:0;background:transparent;color:var(--accent-text);font-size:12px;cursor:pointer;height:max-content;padding:4px 6px}.link-btn:hover{color:var(--accent-hover-text)}
 /* dashboard misc */
 .card .sub{font-size:13px;color:var(--text-2)}
+/* seg control + skills page (agent-capabilities §12.3/§12.1) */
+.seg{display:flex;gap:8px;margin:0 0 12px}.seg-opt{flex:1;background:var(--hover);color:var(--text-2)}.seg-opt.active{background:var(--accent);color:#fff;border-color:transparent}
+.skill-item{flex-direction:column;align-items:stretch;gap:4px}.skill-item-head{display:flex;gap:8px;align-items:center;justify-content:space-between}.skill-item.editing{outline:1px solid var(--accent-text)}.skill-item-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.skill-del-hint{margin:4px 0 0;color:var(--warn);font-size:12px}
+.skill-bind{margin:8px 0 4px;padding:12px;background:var(--bg-0);border:1px solid var(--border);border-radius:var(--radius-s)}
 @media(max-width:1150px){.app{grid-template-columns:70px 1fr 280px}.cards{grid-template-columns:repeat(2,1fr)}.content-grid{grid-template-columns:1fr}}

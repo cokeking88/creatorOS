@@ -24,7 +24,7 @@
     "package:dir": "npm run build && electron-builder --dir",
     "package:mac": "npm run build && electron-builder --mac",
     "package:win": "npm run build && electron-builder --win",
-    "mcp:built": "node dist-tools/mcp-stdio.js",
+    "mcp:built": "node dist-tools/scripts/mcp-stdio.js",
     "doctor": "node --env-file-if-exists=.env scripts/doctor.mjs",
     "prepare": "husky"
   },

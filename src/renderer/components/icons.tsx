@@ -16,6 +16,7 @@ export const IcAccounts = () => <I d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4 21c0
 export const IcFiles = () => <I d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />; // 文件夹
 export const IcContent = () => <I d="M12 20h9 M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />; // 笔
 export const IcAutomation = () => <I d="M12 2v3 M12 19v3 M4.9 4.9l2.1 2.1 M17 17l2.1 2.1 M2 12h3 M19 12h3 M4.9 19.1 7 17 M17 7l2.1-2.1 M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10z" />; // 齿轮（手绘线稿，非 emoji）
+export const IcSkills = () => <I d="M13 2 4 14h6l-1 8 9-12h-6z" />; // 闪电（agent-capabilities §12.1：一键可运行的能力）
 export const IcLogs = () => <I d="M4 4h16v16H4z M8 9h8 M8 13h8 M8 17h5" />; // 列表
 export const IcSettings = () => <I d="M4 21v-7 M4 10V3 M12 21v-9 M12 8V3 M20 21v-5 M20 12V3 M1 14h6 M9 8h6 M17 16h6" />; // 滑杆组
 

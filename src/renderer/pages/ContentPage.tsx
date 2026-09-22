@@ -1,8 +1,8 @@
 import React,{useMemo,useState} from 'react'; import type { AppState, ContentItem } from '../../shared/types';
+import { fmtUpdate } from '../../shared/format';
 import { Empty } from '../components/Empty'; import { IcContent } from '../components/icons';
 
 const STATUS_LABEL: Record<ContentItem['status'], string> = { draft:'草稿', idea:'灵感', scheduled:'已排期', published:'已发布', archived:'已归档' };
-const fmtUpdate=(t:number)=>{ const d=new Date(t); const pad=(n:number)=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 
 export function ContentPage({state,refresh}:{state:AppState|null;refresh:()=>void}) {
   const [title,setTitle]=useState(''); const [body,setBody]=useState(''); const [platform,setPlatform]=useState('xiaohongshu'); const [accountId,setAccountId]=useState('');

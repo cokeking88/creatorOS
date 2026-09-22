@@ -72,6 +72,12 @@ test('invalid job payloads are rejected with 400 and never reach the scheduler',
   expect(r.status).toBe(400);
   expect(r.json).toMatchObject({ error: expect.stringContaining('name') });
 
+  // agent.run payload referencing a skill that does not exist (AC-S5 gateway
+  // face): the Scheduler gate rejects it before any job is created.
+  r = await gw.post('/api/jobs', { name: 'dangling-skill', cron: '*/5 * * * *', workflowType: 'agent.run', payload: { skillId: 'does-not-exist', prompt: null } });
+  expect(r.status).toBe(400);
+  expect(r.json).toMatchObject({ error: expect.stringContaining('does not exist') });
+
   // None of the rejected shapes became a job.
   const state = await app.window.evaluate(async () => window.creatorOS.state());
   const names = (state.jobs as Array<{ name: string }>).map((j) => j.name);

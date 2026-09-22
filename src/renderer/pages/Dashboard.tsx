@@ -1,15 +1,10 @@
-import React,{useEffect,useState} from 'react'; import type { AppState, AgentRunsOverview } from '../../shared/types'; import { fmtCost, fmtDur } from '../../shared/format'; import { Empty } from '../components/Empty'; import { IcContent, IcAutomation } from '../components/icons';
-
-/** Compact relative time: 刚刚 / N 分钟前 / N 小时前 / N 天前 (caption-style sub info). */
-function relTime(t:number):string {
-  const diff=Date.now()-t; const m=Math.floor(diff/60000); if(m<1)return '刚刚'; if(m<60)return `${m} 分钟前`; const h=Math.floor(m/60); if(h<24)return `${h} 小时前`; return `${Math.floor(h/24)} 天前`;
-}
+import React,{useEffect,useState} from 'react'; import type { AppState, AgentRunsOverview } from '../../shared/types'; import { fmtCost, fmtDur, relTime } from '../../shared/format'; import { Empty } from '../components/Empty'; import { IcContent, IcAutomation } from '../components/icons';
 
 export function Dashboard({state}:{state:AppState|null}) {
   const [runs,setRuns]=useState<AgentRunsOverview|null>(null);
   // App conditionally renders pages, so each mount is a fresh fetch (R2 §7.1) — no event subscription.
   useEffect(()=>{ void window.creatorOS.agent.runsList(10).then(setRuns); },[]);
-  const profiles=state?.profiles??[]; const accounts=state?.accounts??[]; const contents=state?.contents??[]; const jobs=state?.jobs??[];
+  const profiles=state?.profiles??[]; const accounts=state?.accounts??[]; const contents=state?.contents??[]; const jobs=state?.jobs??[]; const skillsList=state?.skills??[];
   const activeJobs=jobs.filter(j=>j.enabled);
   const boundProfiles=profiles.filter(p=>p.accountId).length;
   const platforms=new Set(accounts.map(a=>a.platformId)).size;
@@ -20,6 +15,7 @@ export function Dashboard({state}:{state:AppState|null}) {
   const hour=today.getHours();
   const greet=hour<12?'上午好':hour<18?'下午好':'晚上好';
   const agentRuns=runs?.agentRuns??[]; const jobRuns=runs?.jobRuns??[];
+  const lastSkillUpdate=skillsList.length?Math.max(...skillsList.map(s=>s.updatedAt)):null;
   return <div className="page">
     <header><h1>工作台</h1><p className="muted">{greet}，{activeName} · 共 {accounts.length} 个账号在线运营</p></header>
     <div className="cards">
@@ -27,6 +23,7 @@ export function Dashboard({state}:{state:AppState|null}) {
       <div className="card"><strong>{accounts.length}</strong><span>运营账号</span><span className="sub">{platforms} 个平台</span></div>
       <div className="card"><strong>{contents.length}</strong><span>草稿</span><span className="sub">{todayDrafts} 篇今日新增</span></div>
       <div className="card"><strong>{activeJobs.length}</strong><span>启用中定时任务</span><span className="sub">{lastJobRun?`最近一次 ${relTime(lastJobRun)}`:'暂无运行记录'}</span></div>
+      <div className="card"><strong>{skillsList.length}</strong><span>技能</span><span className="sub">{lastSkillUpdate?`更新于 ${relTime(lastSkillUpdate)}`:'还没有技能'}</span></div>
     </div>
     <div className="content-grid">
       <section className="panel"><h2>最近 Agent 运行</h2>
