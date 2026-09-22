@@ -1,11 +1,12 @@
 import Fastify from 'fastify';
 import cron from 'node-cron';
+import type { BrowserWindow } from 'electron';
 import type { BrowserKernel } from '../browser/BrowserKernel.js';
 import type { Scheduler } from '../scheduler/Scheduler.js';
 import { repo } from '../db/repository.js';
 import { logger } from '../services/logger.js';
 
-export async function startGateway(browser: BrowserKernel, scheduler: Scheduler) {
+export async function startGateway(browser: BrowserKernel, scheduler: Scheduler, mainWindow?: () => BrowserWindow | null) {
   const log = logger.child('gateway');
   const app = Fastify({ logger:false });
   const token=process.env.CREATOROS_GATEWAY_TOKEN ?? 'change-me';
@@ -33,6 +34,13 @@ export async function startGateway(browser: BrowserKernel, scheduler: Scheduler)
   app.post('/api/browser/evaluate', async(req)=>({result:await browser.evaluate(String((req.body as any)?.expression??''))}));
   app.post('/api/browser/upload', async(req)=>{const b=req.body as any;return browser.upload(String(b?.ref??''),Array.isArray(b?.paths)?b.paths.map(String):[]);});
   app.get('/api/browser/screenshot', async()=>({dataUrl:await browser.screenshot()}));
+  // Main window (app UI) capture — used by the README/docs screenshots and the UI visual-review flow.
+  app.get('/api/app/screenshot', async(_req, reply)=>{
+    const win = mainWindow?.();
+    if (!win || win.isDestroyed()) return reply.code(503).send({ error: 'main window not available' });
+    const image = await win.webContents.capturePage();
+    return { dataUrl: image.toDataURL() };
+  });
   app.post('/api/jobs/:id/run', async(req)=>{await scheduler.run((req.params as any).id);return {ok:true};});
   app.get('/api/logs', async(req)=>{const q=(req.query as any);return {entries:logger.query({level:q?.level,module:q?.module,search:q?.search,since:q?.since?Number(q.since):undefined,limit:q?.limit?Number(q.limit):undefined}),modules:logger.modules()};});
   app.post('/api/logs/clear', async()=>{logger.clear();return {ok:true};});

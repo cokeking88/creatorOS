@@ -262,7 +262,8 @@ export class ClaudeAgentService {
       if (abort.signal.aborted) {
         return finalize({ runId, sessionId, ok: false, text: '', stepCount, costUsd: 0, durationMs: 0, error: 'interrupted', interrupted: true, source: opts.source ?? 'chat' });
       }
-      return finalize({ runId, sessionId, ok: true, text: `Fake agent processed: ${prompt}`, stepCount, costUsd: 0, durationMs: 42, source: opts.source ?? 'chat' });
+      const finalText = String((scripted[3] as { result?: unknown }).result ?? '');
+      return finalize({ runId, sessionId, ok: true, text: finalText, stepCount, costUsd: 0, durationMs: 42, source: opts.source ?? 'chat' });
     } finally {
       this.registry.unregister(runId);
     }

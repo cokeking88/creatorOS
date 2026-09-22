@@ -24,7 +24,9 @@ export function fakeSessionId(opts: FakeScriptOptions): string {
 /** The scripted message sequence: tool_use -> tool_result -> assistant text -> result. */
 export function buildFakeScript(opts: FakeScriptOptions): unknown[] {
   const sessionId = fakeSessionId(opts);
-  const text = `Fake agent processed: ${opts.prompt}`;
+  const text = opts.resumeSessionId
+    ? `继续处理：${opts.prompt}`
+    : `已完成「${opts.prompt}」：打开 example.com 并读取页面内容。页面标题为 Example Domain，正文包含一个指向 iana.org 的链接。登录态正常，无需重新授权。`;
   return [
     {
       type: 'assistant',

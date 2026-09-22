@@ -2,6 +2,38 @@
 
 Local-first AI creator operations workspace. The defining property of this MVP is a **persistent browser runtime embedded inside the desktop app**: Electron `WebContentsView` + `persist:` profile sessions + a main-process BrowserKernel. Agents, cron jobs and external bots operate that same internal browser runtime.
 
+## Screenshots
+
+| Browser workspace | Embedded page (agent-controlled) |
+|---|---|
+| ![Browser workspace](docs/screenshots/browser.png) | ![Embedded page](docs/screenshots/browser-embedded.png) |
+
+The embedded `WebContentsView` renders inside the app window (left); the agent panel on the right streams every step of a Claude Code run as it operates that same browser (right image: the active tab's content captured by the BrowserKernel).
+
+**Agent panel — live step stream** (Claude Code kernel, chat and cron jobs share the same engine):
+
+| Running | Finished |
+|---|---|
+| ![Agent running](docs/screenshots/agent-steps.png) | ![Agent done](docs/screenshots/agent-done.png) |
+
+Each tool call shows as a `⚙ browser_*` row with its input JSON, its result as a `✓/✗` row with duration, assistant text streams in as a typewriter, and the run ends with a `● done` row carrying cost and wall time. A stop button interrupts mid-run; follow-up messages resume the same session.
+
+**Pages:**
+
+| Dashboard | Content |
+|---|---|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Content](docs/screenshots/content.png) |
+
+| Automation (cron, incl. `agent.run`) | Logs |
+|---|---|
+| ![Automation](docs/screenshots/automation.png) | ![Logs](docs/screenshots/logs.png) |
+
+| Settings (agent engine) | Accounts |
+|---|---|
+| ![Settings](docs/screenshots/settings.png) | ![Accounts](docs/screenshots/accounts.png) |
+
+> Screenshots are regenerated with `npx tsx scripts/capture-readme.mts` (offline, fake agent mode).
+
 ## Included
 
 - Electron 44 + React + TypeScript + Vite
@@ -98,3 +130,5 @@ This repository is a runnable foundation, not a finished commercial publisher. B
 - `docs/USAGE_CN.md`
 - `docs/WORKFLOW_CN.md` (R&D workflow, R0–R5)
 - `docs/DEVELOPMENT_PLAN_CN.md` (milestones)
+- `docs/CODE_REVIEW_v0.3.md` (v0.3 code review: 10 findings, prioritized)
+- `docs/specs/` (per-feature R0–R4 artifacts: requirement, UI, architecture, dev report, test report)

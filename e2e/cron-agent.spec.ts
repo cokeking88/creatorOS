@@ -145,7 +145,7 @@ test('POST /api/jobs/:id/run triggers the shared engine: same event stream, both
     expect(jr!.status).toBe('success');
     expect(jr!.finished_at).not.toBeNull();
     const output = JSON.parse(jr!.output_json as string) as { text: string; steps: number; sessionId: string };
-    expect(output.text).toBe('Fake agent processed: cron: open the workspace dashboard');
+    expect(output.text).toContain('cron: open the workspace dashboard');
     expect(output.steps).toBeGreaterThanOrEqual(4);
     expect(output.sessionId).toBe(terminal.sessionId);
   } finally {

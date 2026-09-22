@@ -37,7 +37,7 @@ async function createWindow() {
   kernel = new BrowserKernel(mainWindow, changed); initDatabase(); kernel.bootstrap();
   const agent = initClaudeAgent(kernel, { bus: agentBus });
   const scheduler=new Scheduler(kernel, agent); scheduler.reload(); registerIpc(mainWindow,kernel,scheduler,agent);
-  void startGateway(kernel,scheduler).catch(e=>log.error('Gateway start failed',String(e)));
+  void startGateway(kernel,scheduler,()=>mainWindow).catch(e=>log.error('Gateway start failed',String(e)));
   const dev=process.env.VITE_DEV_SERVER_URL; if(dev) await mainWindow.loadURL(dev); else await mainWindow.loadFile(join(__dirname,'../../dist/index.html'));
   mainWindow.on('closed',()=>{mainWindow=null;kernel=null;});
   log.info('App window ready', { dev: Boolean(dev) });

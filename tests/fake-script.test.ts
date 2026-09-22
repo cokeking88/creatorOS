@@ -44,7 +44,7 @@ describe('buildFakeScript', () => {
     const result = script[3] as Record<string, unknown>;
     expect(result.subtype).toBe('success');
     expect(result.is_error).toBe(false);
-    expect(result.result).toBe('Fake agent processed: publish draft 1');
+    expect(result.result).toContain('publish draft 1');
     expect(result.session_id).toBe('fake-session-r9');
   });
 
@@ -95,7 +95,7 @@ describe('fakeScript through the real stepTranslator (AC1 offline face)', () => 
   it('text step echoes the prompt and carries the assistant message uuid', () => {
     const steps = translateAll(buildFakeScript({ runId: 'run-x', prompt: 'summarize stats' }), 'run-x');
     const text = steps.find((s) => s.type === 'text')!;
-    expect(text.text).toBe('Fake agent processed: summarize stats');
+    expect(text.text).toContain('summarize stats');
     expect(text.isDelta).toBeUndefined(); // full text, not a delta
     expect(text.msgUuid).toBe('fake-msg-run-x-2');
   });

@@ -152,7 +152,7 @@ test('onAgentDone resolves ok:true with a fake sessionId; agent_runs row is a co
   expect(input.prompt).toBe('audit me');
   expect(input.source).toBe('chat');
   const output = JSON.parse(row!.output_json!) as { text: string; steps: number; sessionId: string };
-  expect(output.text).toBe('Fake agent processed: audit me');
+  expect(output.text).toContain('audit me');
   expect(output.steps).toBe(steps.length);
   expect(output.sessionId).toBe(done!.sessionId);
   const stepsJson = JSON.parse(row!.steps_json!) as Array<{ type: string; seq: number }>;
