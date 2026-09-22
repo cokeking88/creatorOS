@@ -62,18 +62,32 @@ test('＋P inline input creates and activates a new profile (window.prompt is de
 });
 
 test('agent chat area scrolls instead of blowing out the panel', async () => {
-  const metrics = await app.window.evaluate(() => {
-    const chat = document.querySelector('.chat') as HTMLElement | null;
-    const panel = document.querySelector('.agent') as HTMLElement | null;
-    if (!chat || !panel) return null;
+  // Grow real content first (three fake-mode runs stream steps + bubbles), then
+  // assert the layout holds: chat scrolls, composer pinned inside the viewport.
+  for (let i = 0; i < 3; i++) {
+    await app.window.locator('.composer textarea').fill(`第${i}轮：打开 example.com 然后详细汇报页面内容，多说几句`);
+    await app.window.locator('.composer button:has-text("发送")').click();
+    await app.window.waitForTimeout(1200);
+  }
+  await app.window.waitForTimeout(900);
+  const m = await app.window.evaluate<Record<string, number | string | boolean>>(`(() => {
+    const chat = document.querySelector('.chat');
+    const composer = document.querySelector('.composer');
+    const panel = document.querySelector('.agent');
+    const appEl = document.querySelector('.app');
     return {
-      chatScrollable: chat.scrollHeight >= chat.clientHeight,
       chatOverflow: getComputedStyle(chat).overflowY,
-      panelWithinWindow: panel.getBoundingClientRect().bottom <= window.innerHeight + 1,
+      panelBottom: Math.round(panel.getBoundingClientRect().bottom),
+      appBottom: Math.round(appEl.getBoundingClientRect().bottom),
+      windowH: window.innerHeight,
+      composerBottom: Math.round(composer.getBoundingClientRect().bottom),
+      chatHasScrollSpace: chat.scrollHeight > chat.clientHeight,
     };
-  });
-  expect(metrics).not.toBeNull();
-  expect(metrics!.chatOverflow).toBe('auto');
-  // The panel (and its composer) must stay inside the window even with content.
-  expect(metrics!.panelWithinWindow).toBe(true);
+  })()`);
+  expect(m.chatOverflow).toBe('auto');
+  // The whole layout is pinned to the viewport — nothing gets pushed below the fold.
+  expect(Number(m.panelBottom)).toBeLessThanOrEqual(Number(m.windowH) + 1);
+  expect(Number(m.appBottom)).toBeLessThanOrEqual(Number(m.windowH) + 1);
+  expect(Number(m.composerBottom)).toBeLessThanOrEqual(Number(m.windowH) + 1);
+  expect(m.chatHasScrollSpace).toBe(true);
 });
