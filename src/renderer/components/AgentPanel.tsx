@@ -56,9 +56,13 @@ function StepLine({step,expanded,onToggle}:{step:AgentStep;expanded:boolean;onTo
   </div>;
   if(step.type==='done'||step.type==='error') { let meta:Record<string,unknown>={}; try { meta=step.detail?JSON.parse(step.detail):{}; } catch { /* non-json detail */ }
     const interrupted=meta.subtype==='interrupted';
+    // Failure reason inline (not buried in the expandable JSON): error rows show
+    // the raw reason text right after the label, full detail still expandable.
+    const reason=typeof meta.error==='string'&&meta.error?meta.error:step.type==='error'&&!interrupted?String(step.detail||'').slice(0,0):'';
     return <div className={`step ${step.type}`} onClick={onToggle}>
       <span className="step-icon">{step.type==='done'?'●':<IcWarn/>}</span>
       <span className="step-label">{step.type==='done'?'完成':interrupted?'已中断':'出错'}</span>
+      {step.type==='error'&&reason&&<span className="step-error" title={reason}>{reason.length>70?`${reason.slice(0,70)}…`:reason}</span>}
       {step.type==='error' && step.detail && <span className="step-hint">{expanded?'收起':'详情'}</span>}
       {typeof meta.cost==='number'&&<span className="step-time">{fmtCost(meta.cost)}</span>}
       {typeof meta.durationMs==='number'&&<span className="step-time">{fmtDur(meta.durationMs)}</span>}

@@ -150,6 +150,8 @@ export type AgentRunSummary = {
   durationMs: number | null;
   startedAt: number;
   finishedAt: number | null;
+  /** 失败/中断原因（agent_runs.error，失败可见性 §62） */
+  error: string | null;
 };
 
 /** Dashboard「最近定时任务运行」行（job_runs LEFT JOIN jobs 只读投影, §7.2）。 */

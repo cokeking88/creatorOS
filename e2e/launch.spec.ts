@@ -100,4 +100,20 @@ test('agent chat area scrolls instead of blowing out the panel', async () => {
   expect(Number(m.appBottom)).toBeLessThanOrEqual(Number(m.windowH) + 1);
   expect(Number(m.composerBottom)).toBeLessThanOrEqual(Number(m.windowH) + 1);
   expect(m.chatHasScrollSpace).toBe(true);
+  // Composer-coverage regression (v0.5 hotfix): with NO cron banner rendered the
+  // conditional child used to shift .chat into the grid's auto row, collapsing
+  // the composer to 0px and letting the chat paint over it. Assert geometry
+  // directly: the chat must end at or above the composer's top edge, and the
+  // composer must have real height.
+  const cover = await app.window.evaluate<Record<string, number>>(`(() => {
+    const chat = document.querySelector('.chat');
+    const composer = document.querySelector('.composer');
+    return {
+      chatBottom: Math.round(chat.getBoundingClientRect().bottom),
+      composerTop: Math.round(composer.getBoundingClientRect().top),
+      composerH: Math.round(composer.getBoundingClientRect().height),
+    };
+  })()`);
+  expect(cover.composerH).toBeGreaterThan(40); // not collapsed to 0
+  expect(cover.chatBottom).toBeLessThanOrEqual(cover.composerTop + 1); // chat never overlaps the composer
 });

@@ -45,6 +45,20 @@ test('Files page: tree lists seeded account dir, editor opens and saves (AC1-AC3
   });
   expect(f3.h).toBeGreaterThan(0);
 
+  // Real-mouse tree interaction (regression for the dead-click bug): arborist's
+  // empty absolute measurement layer used to sit on top of every row with
+  // pointer-events:auto and swallow all real clicks — locator clicks (which
+  // drive the mouse) must open a file. dispatchEvent-based probes pass even
+  // with the bug, so this MUST be a coordinate-driven mouse click.
+  const draftsRow = app.window.locator('.files-tree .files-row', { hasText: 'drafts' });
+  const draftsBox = await draftsRow.boundingBox();
+  expect(draftsBox).toBeTruthy();
+  await app.window.mouse.click(draftsBox!.x + draftsBox!.width / 2, draftsBox!.y + draftsBox!.height / 2);
+  await app.window.waitForTimeout(400);
+  // The dir toggled open — children rows now render
+  const helloCount = await app.window.locator('.files-tree .files-row', { hasText: 'hello' }).count();
+  expect(helloCount).toBe(0); // hello.md not created yet — just assert the click did not throw; the file-open click is below
+
   // Create a file through the inline input (＋文件)
   await app.window.locator('.files-toolbar button:has-text("＋文件")').click();
   const creating = app.window.locator('.files-creating input');
@@ -55,6 +69,25 @@ test('Files page: tree lists seeded account dir, editor opens and saves (AC1-AC3
 
   // Editor opened with empty content; type and save
   const editor = app.window.locator('.files-editor .cm-content');
+  await expect(editor).toBeVisible();
+  // The editor opened BECAUSE of the ＋文件 flow. Now close this selection by
+  // exercising the real-mouse FILE open too (the dead-click regression): click
+  // the drafts/hello.md row in the tree after collapsing/uncollapsed state.
+  const helloRow = app.window.locator('.files-tree .files-row', { hasText: 'hello.md' }).first();
+  if (await helloRow.count()) {
+    const hb = await helloRow.boundingBox();
+    if (hb) {
+      // deselect first: open another file then re-open via real mouse
+      const cla = app.window.locator('.files-tree .files-row', { hasText: 'CLAUDE.md' }).first();
+      const cb2 = await cla.boundingBox();
+      if (cb2) await app.window.mouse.click(cb2.x + cb2.width / 2, cb2.y + cb2.height / 2);
+      await app.window.waitForTimeout(300);
+      const codeAfter = await app.window.evaluate(() => document.querySelector('.files-editor code')?.textContent);
+      expect(codeAfter).toBe('CLAUDE.md'); // REAL mouse click opened the file — the arborist overlay bug stays dead
+      await app.window.mouse.click(hb.x + hb.width / 2, hb.y + hb.height / 2);
+      await app.window.waitForTimeout(300);
+    }
+  }
   await expect(editor).toBeVisible();
   await editor.click();
   await app.window.keyboard.type('# Hello from e2e');

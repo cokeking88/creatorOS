@@ -63,17 +63,17 @@ export function registerIpc(win: BrowserWindow, browser: BrowserKernel, schedule
   // Read-only dashboard projection (agent_runs + job_runs, §7.2). rawSqlite on
   // purpose: no repo precedent for these two tables and Scheduler already uses
   // raw prepare at this layer.
-  type AgentRunRow = { id:string; status:string; input_json:string; cost_usd:number|null; duration_ms:number|null; started_at:number; finished_at:number|null };
+  type AgentRunRow = { id:string; status:string; input_json:string; cost_usd:number|null; duration_ms:number|null; started_at:number; finished_at:number|null; error:string|null };
   type JobRunRow = { id:string; job_id:string; job_name:string|null; status:string; started_at:number; finished_at:number|null; error:string|null };
   ipcMain.handle(IPC.AGENT_RUNS_LIST,(_e,limit=10)=>{
     const agentRuns=(rawSqlite().prepare(
-      `SELECT id,status,input_json,cost_usd,duration_ms,started_at,finished_at FROM agent_runs ORDER BY started_at DESC LIMIT ?`
+      `SELECT id,status,input_json,cost_usd,duration_ms,started_at,finished_at,error FROM agent_runs ORDER BY started_at DESC LIMIT ?`
     ).all(limit) as AgentRunRow[]).map((r):AgentRunSummary=>{
       // input_json is written by claudeAgent as {prompt, source}; a corrupted row
       // must degrade, not take the whole dashboard down.
       let prompt=''; let source='chat';
       try { const input=JSON.parse(r.input_json) as {prompt?:unknown;source?:unknown}; if(typeof input.prompt==='string')prompt=input.prompt; if(typeof input.source==='string')source=input.source; } catch { /* corrupted input_json */ }
-      return { id:r.id,status:r.status,source,prompt,ok:r.status==='success',costUsd:r.cost_usd,durationMs:r.duration_ms,startedAt:r.started_at,finishedAt:r.finished_at };
+      return { id:r.id,status:r.status,source,prompt,ok:r.status==='success',costUsd:r.cost_usd,durationMs:r.duration_ms,startedAt:r.started_at,finishedAt:r.finished_at,error:r.error };
     });
     const jobRuns=(rawSqlite().prepare(
       `SELECT jr.id,jr.job_id,jr.status,jr.started_at,jr.finished_at,jr.error,j.name AS job_name FROM job_runs jr LEFT JOIN jobs j ON j.id=jr.job_id ORDER BY jr.started_at DESC LIMIT ?`

@@ -193,6 +193,13 @@ test('stop mid-run interrupts: done carries ok:false/interrupted:true and agent_
   // And stop() on a random unknown runId also returns false.
   const unknown = await app.window.evaluate(async () => window.creatorOS.agent.stop('no-such-run'));
   expect(unknown).toBe(false);
+
+  // Failure-visibility (v0.5 hotfix §62): the dashboard projection must carry the
+  // error so 工作台 can show 失败原因 — runsList row for this run has error set.
+  const runs = await app.window.evaluate(async () => window.creatorOS.agent.runsList(10));
+  const mine = (runs as { agentRuns: Array<{ id: string; error: string | null }> }).agentRuns.find((r) => r.id === runId);
+  expect(mine).toBeDefined();
+  expect(mine!.error).not.toBeNull();
 });
 
 test('resume: a second run with the first sessionId still completes and keeps the session', async () => {

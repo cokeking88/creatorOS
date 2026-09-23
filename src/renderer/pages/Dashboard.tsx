@@ -29,14 +29,16 @@ export function Dashboard({state}:{state:AppState|null}) {
       <section className="panel"><h2>最近 Agent 运行</h2>
         {agentRuns.length?agentRuns.map(r=><article className="content-item" key={r.id}>
           <div><b>{r.prompt.length>60?`${r.prompt.slice(0,60)}…`:r.prompt}</b>
-            <p>{r.source==='chat'?'对话':`定时任务「${r.source.slice('cron:'.length)}」`} · {relTime(r.startedAt)}{r.costUsd!==null?` · ${fmtCost(r.costUsd)}`:''}{r.durationMs!==null?` · ${fmtDur(r.durationMs)}`:''}</p></div>
+            <p>{r.source==='chat'?'对话':`定时任务「${r.source.slice('cron:'.length)}」`} · {relTime(r.startedAt)}{r.costUsd!==null?` · ${fmtCost(r.costUsd)}`:''}{r.durationMs!==null?` · ${fmtDur(r.durationMs)}`:''}</p>
+            {!r.ok&&r.error&&<p className="content-item-error" title={r.error}>失败原因：{r.error.length>90?`${r.error.slice(0,90)}…`:r.error}</p>}</div>
           <span className={`pill ${r.ok?'ok':''}`}>{r.ok?'成功':'失败'}</span>
         </article>):<Empty icon={<IcAutomation/>} title="还没有 Agent 运行记录" hint="在右侧面板给 Agent 下第一条指令"/>}
       </section>
       <section className="panel"><h2>最近定时任务运行</h2>
         {jobRuns.length?jobRuns.slice(0,5).map(r=><article className="content-item" key={r.id}>
           <div><b>{r.jobName}</b>
-            <p>{relTime(r.startedAt)}{r.finishedAt!==null?` · ${fmtDur(r.finishedAt-r.startedAt)}`:''}</p></div>
+            <p>{relTime(r.startedAt)}{r.finishedAt!==null?` · ${fmtDur(r.finishedAt-r.startedAt)}`:''}</p>
+            {r.status!=='success'&&r.status!=='running'&&r.error&&<p className="content-item-error" title={r.error}>失败原因：{r.error.length>90?`${r.error.slice(0,90)}…`:r.error}</p>}</div>
           <span className={`pill ${r.status==='success'?'ok':''}`}>{r.status==='success'?'成功':r.status==='running'?'运行中':'失败'}</span>
         </article>):<Empty icon={<IcContent/>} title="还没有定时任务运行记录" hint="到「自动化」页创建第一个定时任务"/>}
       </section>
