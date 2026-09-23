@@ -17,6 +17,13 @@ import { IPC } from '../shared/ipc.js';
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url));
 try { process.loadEnvFile?.(join(process.cwd(), '.env')); } catch { /* .env optional */ }
+// Embedded-browser normality (SECURITY.md #11 scope: presentation hygiene, not
+// spoofing): strip Chromium's automation marks so pages behave exactly as they
+// do in any embedded-browser product (VS Code webviews, Slack browser views).
+// Without this, navigator.webdriver === true and Google sign-in (among others)
+// rejects the session outright.
+app.commandLine.appendSwitch('disable-blink-features', 'AutomationControlled');
+
 // Test isolation: point userData at a throwaway dir instead of the real profile directory.
 if (process.env.CREATOROS_USER_DATA) app.setPath('userData', process.env.CREATOROS_USER_DATA);
 logger.init(join(app.getPath('userData'), 'logs'));

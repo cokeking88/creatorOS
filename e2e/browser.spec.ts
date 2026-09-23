@@ -83,3 +83,27 @@ test('embedded session presents a standard Chrome UA (hygiene, not spoofing)', a
   expect(ua).not.toContain('reatorOS'); // matches CreatorOS and creatoros
   expect(ua).not.toContain('creatoros');
 });
+
+test('embedded session is not marked automated and chrome object is complete (Google sign-in gate)', async () => {
+  // v0.5.1 hotfix: two hard tells that made Google (and similar) reject sign-in —
+  //   1. navigator.webdriver === true  (no disable-blink-features=AutomationControlled)
+  //   2. UA claims Chrome but window.chrome.runtime/app/csi/loadTimes are undefined
+  // Assert both are fixed in the REAL embedded page (main world, post-navigation).
+  const r = await gw.post('/api/browser/evaluate', {
+    expression: `JSON.stringify({
+      webdriver: navigator.webdriver,
+      hasChrome: typeof window.chrome === 'object',
+      runtime: !!window.chrome?.runtime,
+      app: !!window.chrome?.app,
+      csi: typeof window.chrome?.csi,
+      loadTimes: typeof window.chrome?.loadTimes,
+    })`,
+  });
+  const m = JSON.parse(String(r.json.result)) as Record<string, unknown>;
+  expect(m.webdriver).toBe(false); // AutomationControlled blink feature must be off
+  expect(m.hasChrome).toBe(true);
+  expect(m.runtime).toBe(true);
+  expect(m.app).toBe(true);
+  expect(m.csi).toBe('function');
+  expect(m.loadTimes).toBe('function');
+});
